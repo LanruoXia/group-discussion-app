@@ -116,7 +116,7 @@ export function useAgora(appId: string, channel: string, uid: string) {
       client.off('user-left', handleUserLeft);
       window.removeEventListener('beforeunload', leave);
     };
-  }, [client]);
+  }, [client, leave, subscribeUser]);
 
   return {
     joined,
