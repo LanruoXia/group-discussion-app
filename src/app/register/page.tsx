@@ -18,7 +18,7 @@ export default function RegisterPage() {
     setSuccessMessage(null);
 
     // **Step 1: Check if the username already exists**
-    const { data: existingUser, error: existingUserError } = await supabase
+    const { data: existingUser } = await supabase
       .from("users")
       .select("id")
       .eq("username", username)

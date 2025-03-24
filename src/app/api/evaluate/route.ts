@@ -102,11 +102,22 @@ export async function POST(req: Request) {
         status: 500,
       });
     }
+    type ScoreDetail = {
+      score: number;
+      comment: string;
+    };
+    
+    type ParticipantScores = {
+      "Pronunciation & Delivery": ScoreDetail;
+      "Communication Strategies": ScoreDetail;
+      "Vocabulary & Language Patterns": ScoreDetail;
+      "Ideas & Organization": ScoreDetail;
+    };
 
-    let evaluationResult: { participants: Record<string, any> };
+    let evaluationResult: { participants: Record<string, ParticipantScores> };
     try {
       evaluationResult = JSON.parse(content);
-    } catch (_err) {
+    } catch {
       return new Response(JSON.stringify({ error: "Failed to parse JSON from OpenAI." }), {
         status: 500,
       });
@@ -125,17 +136,6 @@ export async function POST(req: Request) {
       B: studentIDs[1],
       C: studentIDs[2],
       D: studentIDs[3],
-    };
-    type ScoreDetail = {
-      score: number;
-      comment: string;
-    };
-    
-    type ParticipantScores = {
-      "Pronunciation & Delivery": ScoreDetail;
-      "Communication Strategies": ScoreDetail;
-      "Vocabulary & Language Patterns": ScoreDetail;
-      "Ideas & Organization": ScoreDetail;
     };
 
     const insertData = Object.entries(participants).map(
@@ -159,7 +159,7 @@ export async function POST(req: Request) {
       JSON.stringify({ message: "Evaluation completed successfully!" }),
       { status: 200 }
     );
-  } catch (_err) {
+  } catch {
     return new Response(JSON.stringify({ error: "Internal server error." }), { status: 500 });
   }
 }

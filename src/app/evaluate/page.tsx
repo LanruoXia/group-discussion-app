@@ -21,7 +21,7 @@ export default function Evaluate() {
       const data = await response.json();
       console.log("data message:", data.message);
       setApiStatus(data.message || "API Key check failed");
-    } catch (_error) {
+    } catch {
       setApiStatus("Error: Unable to check API key.");
     }
   };
@@ -82,7 +82,7 @@ export default function Evaluate() {
       } else {
         setMessage(`❌ Error: ${data.error || "Evaluation failed"}`);
       }
-    } catch (_error) {
+    } catch {
       setMessage("❌ Evaluation error. Please try again.");
     }
 

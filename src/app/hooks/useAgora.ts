@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import AgoraRTC, {
   IAgoraRTCClient,
   IAgoraRTCRemoteUser,
@@ -21,22 +21,29 @@ export function useAgora(appId: string, channel: string, uid: string) {
   const localAudioTrack = useRef<IMicrophoneAudioTrack | null>(null);
   const localVideoTrack = useRef<ICameraVideoTrack | null>(null);
 
-  const subscribeUser = async (user: IAgoraRTCRemoteUser) => {
-    if (user.hasVideo) {
-      await client.subscribe(user, 'video').catch(console.warn);
-    }
-    if (user.hasAudio) {
-      await client.subscribe(user, 'audio').catch(console.warn);
-      user.audioTrack?.play();
-    }
+  /**
+   * ✅ 使用 useCallback 包装函数
+   * 保证函数在组件未重新创建时引用不会变，从而避免不必要的 useEffect 执行
+   */
+  const subscribeUser = useCallback(
+    async (user: IAgoraRTCRemoteUser) => {
+      if (user.hasVideo) {
+        await client.subscribe(user, 'video').catch(console.warn);
+      }
+      if (user.hasAudio) {
+        await client.subscribe(user, 'audio').catch(console.warn);
+        user.audioTrack?.play();
+      }
 
-    setRemoteUsers((prev) => {
-      if (prev.find((u) => u.uid === user.uid)) return prev;
-      return [...prev, user];
-    });
-  };
+      setRemoteUsers((prev) => {
+        if (prev.find((u) => u.uid === user.uid)) return prev;
+        return [...prev, user];
+      });
+    },
+    [client] // ✅ 依赖项：client（只要它不变，函数就不会变）
+  );
 
-  const join = async () => {
+  const join = useCallback(async () => {
     if (joined || client.connectionState !== 'DISCONNECTED') return;
 
     const res = await fetch(`/api/agora/token?channelName=${channel}&uid=${uid}`);
@@ -47,7 +54,6 @@ export function useAgora(appId: string, channel: string, uid: string) {
     localAudioTrack.current = await AgoraRTC.createMicrophoneAudioTrack();
     localVideoTrack.current = await AgoraRTC.createCameraVideoTrack();
     await client.publish([localAudioTrack.current, localVideoTrack.current]);
-
 
     setJoined(true);
 
@@ -60,15 +66,15 @@ export function useAgora(appId: string, channel: string, uid: string) {
     client.remoteUsers.forEach(subscribeUser);
 
     fetch('/api/agora/update-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid, channelName: channel, action: 'join' }),
-      }).then(() => {
-        console.log("👋 [JOIN] reported");
-      }).catch(console.error);
-  };
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, channelName: channel, action: 'join' }),
+    }).then(() => {
+      console.log("👋 [JOIN] reported");
+    }).catch(console.error);
+  }, [appId, channel, client, joined, subscribeUser, uid]);
 
-  const leave = async () => {
+  const leave = useCallback(async () => {
     if (!joined) return;
 
     localAudioTrack.current?.close();
@@ -76,21 +82,20 @@ export function useAgora(appId: string, channel: string, uid: string) {
     await client.leave();
 
     fetch('/api/agora/update-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid, channelName: channel, action: 'leave' }),
-      }).then(() => {
-        console.log("✅ [LEAVE] reported");
-      }).catch(console.error);
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, channelName: channel, action: 'leave' }),
+    }).then(() => {
+      console.log("✅ [LEAVE] reported");
+    }).catch(console.error);
 
     setRemoteUsers([]);
     setJoined(false);
-  };
+  }, [channel, client, joined, uid]);
 
   useEffect(() => {
     const handleUserPublished = async (
       user: IAgoraRTCRemoteUser,
-      //mediaType: 'video' | 'audio'
     ) => {
       await subscribeUser(user);
       console.log("👥 Subscribed:", client.remoteUsers.map(u => u.uid));
@@ -116,7 +121,7 @@ export function useAgora(appId: string, channel: string, uid: string) {
       client.off('user-left', handleUserLeft);
       window.removeEventListener('beforeunload', leave);
     };
-  }, [client, leave, subscribeUser]);
+  }, [client, leave, subscribeUser]); // ✅ 已完整列出依赖项
 
   return {
     joined,
