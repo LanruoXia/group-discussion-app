@@ -90,7 +90,7 @@ export function useAgora(appId: string, channel: string, uid: string) {
   useEffect(() => {
     const handleUserPublished = async (
       user: IAgoraRTCRemoteUser,
-      mediaType: 'video' | 'audio'
+      //mediaType: 'video' | 'audio'
     ) => {
       await subscribeUser(user);
       console.log("👥 Subscribed:", client.remoteUsers.map(u => u.uid));

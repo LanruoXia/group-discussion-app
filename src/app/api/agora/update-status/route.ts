@@ -44,8 +44,9 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error('❌ [ERROR] update-status failed:', err);
+  } catch (err) {
+    const error = err as Error;
+    console.error('❌ [ERROR] update-status failed:', error.message);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

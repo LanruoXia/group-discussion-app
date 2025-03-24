@@ -12,7 +12,7 @@ export default function Evaluate() {
   const [testTopic, setTestTopic] = useState<string>(""); // Topic for the session
   const [apiStatus, setApiStatus] = useState<string | null>(null); // API Key Status
 
-  const [studentIDs, setStudentIDs] = useState<string[]>(["", "", "", ""]); // IDs for A, B, C, D
+  //const [studentIDs, setStudentIDs] = useState<string[]>(["", "", "", ""]); // IDs for A, B, C, D
 
   const checkApiKey = async () => {
     setApiStatus("Checking API key...");
