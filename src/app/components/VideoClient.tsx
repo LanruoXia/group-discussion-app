@@ -17,8 +17,10 @@ export default function VideoClient() {
   );
 
   if (!uid) {
-    alert("Please login first.");
-    window.location.href = "/auth";
+    if (typeof window !== "undefined") {
+      alert("Please login first.");
+      window.location.href = "/auth";
+    }
     return null;
   }
 

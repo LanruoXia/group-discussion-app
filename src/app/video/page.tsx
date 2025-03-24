@@ -1,9 +1,5 @@
-import dynamic from "next/dynamic";
+import VideoClient from "../components/VideoClient";
 
-const VideoClient = dynamic(() => import("../components/VideoClient"), {
-  ssr: false,
-});
-
-export default function VideoPage() {
+export default function Page() {
   return <VideoClient />;
 }
