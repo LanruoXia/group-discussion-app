@@ -1,0 +1,34 @@
+HKDSE Speaking Test Rubric:
+
+1. Pronunciation & Delivery (0-7 points)
+	1.	(0 Points) Does not produce any comprehensible speech.
+	2.	(1 Point) Hesitant speech, poor voice projection, and frequent pronunciation errors; difficult to understand.
+	3.	(2 Points) Pronounces simple sounds correctly but struggles with complex words; weak intonation and voice projection.
+	4.	(3 Points) Pronounces basic words correctly but struggles with sound clusters and intonation; inconsistent fluency.
+	5.	(4 Points) Pronounces most words clearly, with occasional minor errors; speaks fluently but with some hesitation.
+	6.	(5-6 Points) Mostly clear and accurate pronunciation with natural intonation; minor errors do not affect communication.
+	7.	(7 Points) Projects voice confidently, pronounces all words clearly and accurately, and uses sophisticated intonation effectively.
+2. Communication Strategies (0-7 points)
+	1.	(0 Points) Does not use any communication strategies or interactional skills.
+	2.	(1 Point) Only responds with simple phrases and struggles to maintain interaction; does not initiate conversation.
+	3.	(2 Points) Uses some basic expressions but relies on formulaic responses; rarely engages in interaction.
+	4.	(3 Points) Occasionally initiates interaction but mostly follows others; limited use of body language.
+	5.	(4 Points) Uses a range of strategies to sustain interaction but may struggle in complex exchanges.
+	6.	(5-6 Points) Uses communication strategies effectively, including body language, turn-taking, and asking questions.
+	7.	(7 Points) Confidently initiates and sustains conversation, responds naturally, and adapts strategies effortlessly.
+3. Vocabulary & Language Patterns (0-7 points)
+	1.	(0 Points) Does not produce recognizable words or phrases.
+	2.	(1 Point) Uses a very limited range of simple vocabulary and fixed expressions; many errors impede understanding.
+	3.	(2 Points) Uses basic words but struggles with more complex vocabulary; frequent grammatical mistakes.
+	4.	(3 Points) Uses common words and simple sentence structures with some errors but conveys basic ideas.
+	5.	(4 Points) Uses a variety of vocabulary and sentence structures; errors are present but do not heavily affect communication.
+	6.	(5-6 Points) Uses an extensive range of vocabulary accurately; minor slips but effective self-correction.
+	7.	(7 Points) Uses a wide range of precise vocabulary and complex sentence structures with near-perfect accuracy.
+4. Ideas & Organization (0-7 points)
+	1.	(0 Points) Does not produce relevant material or meaningful ideas.
+	2.	(1 Point) Produces fragmented responses with no clear organization; relies on memorized phrases.
+	3.	(2 Points) Attempts to express ideas but lacks development and logical structure.
+	4.	(3 Points) Expresses some relevant ideas but with weak elaboration; ideas may be disconnected.
+	5.	(4 Points) Ideas are mostly clear and connected but may lack depth or logical flow.
+	6.	(5-6 Points) Develops well-structured responses with elaboration; transitions smoothly between points.
+	7.	(7 Points) Expresses ideas clearly, logically, and fluently with impressive elaboration and coherence.
