@@ -14,7 +14,8 @@ export async function POST(req: Request) {
     const promptFile = formData.get("prompt");
     const transcriptFile = formData.get("transcript");
     const testTopic = formData.get("test_topic") as string;
-    const studentIDs: string[] = JSON.parse(formData.get("student_ids") as string);
+    // const studentIDs: string[] = JSON.parse(formData.get("student_ids") as string);
+    const studentIDs = JSON.parse(formData.get("student_ids") as string);
 
     if (
       !(rubricFile instanceof File) ||

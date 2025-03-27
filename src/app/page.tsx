@@ -26,20 +26,18 @@ const Home = () => {
     e.preventDefault();
     if (!channel) return;
     if (!username) {
-      alert("⚠️ 请先登录后再加入频道");
-      router.push("/auth"); // 跳转到登录页
+      alert("⚠️ Please login before joining.");
+      router.push("/auth");
       return;
     }
-
-    // 跳转到视频页面，并将频道名作为 URL 参数
     router.push(`/video?channel=${channel}&uid=${username}`);
   };
 
   return (
-    <div className="flex flex-col items-center mt-20">
+    <div className="flex flex-col items-center mt-20 px-4">
       <h1 className="text-3xl font-bold mb-6">Hi {username ?? "Guest"} 👋</h1>
 
-      <form onSubmit={handleJoin} className="space-y-4 w-80">
+      <form onSubmit={handleJoin} className="space-y-4 w-full max-w-xs">
         <input
           type="text"
           placeholder="Enter channel name"
@@ -52,9 +50,25 @@ const Home = () => {
           type="submit"
           className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
         >
-          Join Video Channel
+          Join Directly
         </button>
       </form>
+
+      <div className="mt-6 space-y-3 w-full max-w-xs">
+        <button
+          onClick={() => router.push("/session/create")}
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+        >
+          Create Group Session
+        </button>
+
+        <button
+          onClick={() => router.push("/session/join")}
+          className="w-full bg-blue-700 text-white py-2 rounded hover:bg-blue-800"
+        >
+          Join Group Session
+        </button>
+      </div>
     </div>
   );
 };

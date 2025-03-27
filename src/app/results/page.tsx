@@ -20,6 +20,7 @@ type Evaluation = {
 
 type Session = {
   session_id: string;
+  session_code: string;
   test_topic: string;
   created_at: string;
 };
@@ -33,67 +34,82 @@ export default function ResultsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const fetchEvaluation = async () => {
-      const userID = sessionStorage.getItem("user_id");
+    const fetchLatestEvaluation = async () => {
+      const userId = sessionStorage.getItem("user_id");
       const storedUsername = sessionStorage.getItem("username");
 
-      if (!userID) {
+      if (!userId) {
         setError("⚠️ Please log in to view your results.");
         setLoading(false);
         return;
       }
 
-      setUsername(storedUsername || "Unknown");
-      setLoading(true);
+      setUsername(storedUsername ?? "Unknown");
 
-      // ✅ **Step 1: Get the latest session**
-      const { data: latestSession, error: sessionError } = await supabase
-        .from("session")
-        .select("*")
-        .order("created_at", { ascending: false }) // ✅ Order by latest session
+      // Step 1: 查询该用户参与的最新一条 session
+      const { data: participantRow, error: participantError } = await supabase
+        .from("session_participants")
+        .select("session_id")
+        .eq("user_id", userId)
+        .order("joined_at", { ascending: false })
         .limit(1)
         .single();
 
-      if (sessionError || !latestSession) {
-        setError("⚠️ No session found.");
+      if (participantError || !participantRow) {
+        setError("⚠️ You have not joined any sessions.");
         setLoading(false);
         return;
       }
 
-      setSession(latestSession);
+      const sessionId = participantRow.session_id;
 
-      // ✅ **Step 2: Get the evaluation for the latest session**
-      const { data: latestEvaluation, error: evalError } = await supabase
-        .from("evaluation")
+      // Step 2: 获取 session 信息
+      const { data: sessionData, error: sessionError } = await supabase
+        .from("sessions")
         .select("*")
-        .eq("user_id", userID)
-        .eq("session_id", latestSession.session_id) // ✅ Get evaluation for latest session
+        .eq("session_id", sessionId)
         .single();
 
-      if (evalError || !latestEvaluation) {
-        setError("⚠️ No evaluation found.");
+      if (sessionError || !sessionData) {
+        setError("⚠️ Session not found.");
         setLoading(false);
         return;
       }
 
-      setEvaluation(latestEvaluation);
+      setSession(sessionData);
+
+      // Step 3: 获取该 session 的 evaluation 数据
+      const { data: evaluationData, error: evalError } = await supabase
+        .from("evaluation")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("session_id", sessionId)
+        .single();
+
+      if (evalError || !evaluationData) {
+        setError("⚠️ Evaluation not found for your session.");
+        setLoading(false);
+        return;
+      }
+
+      setEvaluation(evaluationData);
       setLoading(false);
     };
 
-    fetchEvaluation();
+    fetchLatestEvaluation();
   }, []);
 
   if (loading) {
-    return <div className="text-center">Loading latest evaluation data...</div>;
+    return <div className="text-center">Loading your result...</div>;
   }
 
   if (error) {
     return (
-      <div className="text-center text-red-500">
+      <div className="text-center text-red-500 mt-10">
         {error} <br />
         <button
-          className="border border-red-500 text-red-500 px-4 py-2 rounded mt-4 hover:bg-red-100"
           onClick={() => router.push("/auth")}
+          className="mt-4 px-4 py-2 border border-red-500 text-red-500 rounded hover:bg-red-100"
         >
           Login
         </button>
@@ -101,13 +117,14 @@ export default function ResultsPage() {
     );
   }
 
-  if (!evaluation) {
+  if (!evaluation || !session) {
     return (
-      <div className="text-center text-red-500">No results available.</div>
+      <div className="text-center text-red-500 mt-10">
+        No evaluation result found.
+      </div>
     );
   }
 
-  // ✅ **Calculate total score**
   const totalScore =
     evaluation.pronunciation_delivery_score +
     evaluation.communication_strategies_score +
@@ -115,95 +132,78 @@ export default function ResultsPage() {
     evaluation.ideas_organization_score;
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gray-50 py-16 w-full">
-      <h1 className="text-5xl font-bold mb-12 text-blue-500">
-        Test Evaluation
+    <div className="min-h-screen bg-gray-50 py-16 flex flex-col items-center">
+      <h1 className="text-5xl font-bold mb-10 text-blue-500">
+        Your Evaluation
       </h1>
 
-      {/* 🏆 Score Box + Test Details */}
-      <div className="flex justify-between w-full max-w-7xl mb-12 px-12 gap-16">
-        {/* 🏅 Score Box - Left-aligned */}
-        <div className="w-1/3 flex flex-col items-center">
-          <h2 className="text-xl font-semibold text-gray-600 mb-4">
-            Total Score
-          </h2>
-          <div className="w-40 h-40 flex items-center justify-center rounded-full bg-blue-600 text-white text-6xl font-bold shadow-lg">
-            {totalScore}
-          </div>
-          <p className="text-gray-600 text-lg mt-2">/28</p>
-        </div>
-
-        {/* 📋 Test Details - Transparent Background */}
-        <div className="w-2/3">
-          <h2 className="text-2xl font-semibold mb-3">Test Details</h2>
-          <p>
-            <strong>Name:</strong> {username}
-          </p>
-          <p>
-            <strong>Test Name:</strong> {session?.test_topic || "Unknown"}
-          </p>
-          <p>
-            <strong>Session ID:</strong> {evaluation.session_id}
-          </p>
-          <p>
-            <strong>Time Finished:</strong>{" "}
-            {new Date(session?.created_at || "").toLocaleString()}
-          </p>
-          <p>
-            <strong>Speaking Time:</strong> {evaluation.speaking_time} seconds
-          </p>
-          <p>
-            <strong>Word Count:</strong> {evaluation.word_count} words
-          </p>
-        </div>
+      {/* Summary Info */}
+      <div className="max-w-4xl w-full bg-white shadow p-8 rounded mb-10">
+        <h2 className="text-xl font-semibold mb-2">🧾 Summary</h2>
+        <p>
+          <strong>Name:</strong> {username}
+        </p>
+        <p>
+          <strong>Session Code:</strong> {session.session_code}
+        </p>
+        <p>
+          <strong>Topic:</strong> {session.test_topic}
+        </p>
+        <p>
+          <strong>Time:</strong> {new Date(session.created_at).toLocaleString()}
+        </p>
+        <p>
+          <strong>Speaking Time:</strong> {evaluation.speaking_time}s
+        </p>
+        <p>
+          <strong>Word Count:</strong> {evaluation.word_count}
+        </p>
+        <p>
+          <strong>Total Score:</strong> {totalScore} / 28
+        </p>
       </div>
 
-      {/* 📝 Evaluation Sections - Better Layout */}
-      <div className="grid grid-cols-2 gap-8 w-full max-w-7xl px-12">
-        {/* Pronunciation & Delivery */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="font-semibold">🗣 Pronunciation & Delivery</h2>
-          <p className="text-3xl font-bold">
-            {evaluation.pronunciation_delivery_score}/7
-          </p>
-          <p className="italic text-gray-600">
-            {evaluation.pronunciation_delivery_comment}
-          </p>
-        </div>
-
-        {/* Communication Strategies */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="font-semibold">💬 Communication Strategies</h2>
-          <p className="text-3xl font-bold">
-            {evaluation.communication_strategies_score}/7
-          </p>
-          <p className="italic text-gray-600">
-            {evaluation.communication_strategies_comment}
-          </p>
-        </div>
-
-        {/* Vocabulary & Language Patterns */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="font-semibold">📖 Vocabulary & Language Patterns</h2>
-          <p className="text-3xl font-bold">
-            {evaluation.vocabulary_patterns_score}/7
-          </p>
-          <p className="italic text-gray-600">
-            {evaluation.vocabulary_patterns_comment}
-          </p>
-        </div>
-
-        {/* Ideas & Organization */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="font-semibold">📝 Ideas & Organization</h2>
-          <p className="text-3xl font-bold">
-            {evaluation.ideas_organization_score}/7
-          </p>
-          <p className="italic text-gray-600">
-            {evaluation.ideas_organization_comment}
-          </p>
-        </div>
+      {/* Detail Sections */}
+      <div className="grid grid-cols-2 gap-6 max-w-4xl w-full">
+        <EvaluationCard
+          title="Pronunciation & Delivery"
+          score={evaluation.pronunciation_delivery_score}
+          comment={evaluation.pronunciation_delivery_comment}
+        />
+        <EvaluationCard
+          title="Communication Strategies"
+          score={evaluation.communication_strategies_score}
+          comment={evaluation.communication_strategies_comment}
+        />
+        <EvaluationCard
+          title="Vocabulary Patterns"
+          score={evaluation.vocabulary_patterns_score}
+          comment={evaluation.vocabulary_patterns_comment}
+        />
+        <EvaluationCard
+          title="Ideas & Organization"
+          score={evaluation.ideas_organization_score}
+          comment={evaluation.ideas_organization_comment}
+        />
       </div>
+    </div>
+  );
+}
+
+function EvaluationCard({
+  title,
+  score,
+  comment,
+}: {
+  title: string;
+  score: number;
+  comment: string;
+}) {
+  return (
+    <div className="bg-white p-6 shadow rounded">
+      <h3 className="text-lg font-semibold mb-2">{title}</h3>
+      <p className="text-2xl font-bold">{score}/7</p>
+      <p className="text-gray-600 italic mt-2">{comment}</p>
     </div>
   );
 }
