@@ -1,4 +1,3 @@
-// src/app/session/join/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -14,23 +13,31 @@ export default function JoinWaitingRoom() {
 
   const handleJoin = async () => {
     const username = sessionStorage.getItem("username");
-    if (!username) {
+    const user_id = sessionStorage.getItem("user_id"); // 新增：获取 user_id
+
+    if (!username || !user_id) {
       alert("Please login first");
       router.push("/auth");
       return;
     }
 
     setJoining(true);
+    console.log("Joining session with:", {
+      code: sessionCode,
+      username,
+      user_id,
+    });
+
     const res = await fetch("/api/session/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: sessionCode, username }),
+      body: JSON.stringify({ code: sessionCode, username, user_id }),
     });
 
     const data = await res.json();
     if (res.ok) {
-      // 等待页面
-      router.push(`/waiting-room?code=${sessionCode}`);
+      // 跳转到等待室页面（嵌套路由或通过 router.push 均可）
+      router.push(`/session/join/waiting-room?code=${sessionCode}`);
     } else {
       alert("Failed to join: " + data.error);
     }

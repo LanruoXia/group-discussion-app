@@ -10,44 +10,59 @@ export async function POST(req: Request) {
   try {
     const { code, username, user_id } = await req.json();
 
-    // 判断 session 是否存在
+    if (!code || !username || !user_id) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // 获取 session（使用 session_code）
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
       .select("*")
-      .eq("session_id", code)
+      .eq("session_code", code)
       .single();
 
     if (sessionError || !session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    // 获取当前人数
-    const { data: participants } = await supabase
+    const session_id = session.session_id;
+
+    // 获取已加入的参与者
+    const { data: participants, error: participantError } = await supabase
       .from("session_participants")
       .select("*")
-      .eq("session_id", code);
+      .eq("session_id", session_id);
 
+    if (participantError) {
+      throw participantError;
+    }
+
+    // 检查是否已加入
+    const alreadyJoined = participants?.some(p => p.user_id === user_id);
+    if (alreadyJoined) {
+      return NextResponse.json({ message: "Already joined" }, { status: 200 });
+    }
+
+    // 检查人数上限（4人）
     if (participants && participants.length >= 4) {
       return NextResponse.json({ error: "Session is full" }, { status: 400 });
     }
 
-    // 已加入检查
-    if (participants?.some(p => p.user_id === user_id)) {
-      return NextResponse.json({ message: "Already joined" }, { status: 200 });
-    }
-
-    const { error } = await supabase.from("session_participants").insert({
-      session_id: code,
+    // 插入新参与者
+    const { error: insertError } = await supabase.from("session_participants").insert({
+      session_id,
       username,
       user_id,
       is_ai: false,
     });
 
-    if (error) throw error;
+    if (insertError) {
+      throw insertError;
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    console.error("❌ Error joining session:", err.message);
+    console.error("Error joining session:", err.message);
     return NextResponse.json({ error: "Join session failed" }, { status: 500 });
   }
 }

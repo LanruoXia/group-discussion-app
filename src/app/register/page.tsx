@@ -25,7 +25,7 @@ export default function RegisterPage() {
       .single();
 
     if (existingUser) {
-      setError("⚠️ Username already exists. Please choose a different one.");
+      setError("Username already exists. Please choose a different one.");
       setLoading(false);
       return;
     }
