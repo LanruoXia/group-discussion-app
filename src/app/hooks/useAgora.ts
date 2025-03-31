@@ -21,6 +21,28 @@ export function useAgora(appId: string, channel: string, uid: string) {
   const localAudioTrack = useRef<IMicrophoneAudioTrack | null>(null);
   const localVideoTrack = useRef<ICameraVideoTrack | null>(null);
 
+  const saveTranscript = async (transcript: string) => {
+    try {
+      const response = await fetch('/api/transcript/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          channel,
+          uid,
+          transcript,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to save transcript');
+      }
+    } catch (error) {
+      console.error('Error saving transcript:', error);
+    }
+  };
+
   /**
    * ✅ 使用 useCallback 包装函数
    * 保证函数在组件未重新创建时引用不会变，从而避免不必要的 useEffect 执行
@@ -80,6 +102,13 @@ export function useAgora(appId: string, channel: string, uid: string) {
     localAudioTrack.current?.close();
     localVideoTrack.current?.close();
     await client.leave();
+
+    // 获取转录内容并保存
+    const transcriptElement = document.querySelector('.transcript-content');
+    if (transcriptElement) {
+      const transcript = transcriptElement.textContent || '';
+      await saveTranscript(transcript);
+    }
 
     fetch('/api/agora/update-status', {
       method: 'POST',
