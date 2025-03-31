@@ -1,13 +1,19 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useAgora } from "../hooks/useAgora";
 import RemoteVideoPlayer from "../components/agora/RemoteVideoPlayer";
+import { useState, useEffect } from "react";
 
 export default function VideoClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const channel = searchParams.get("channel") || "default-room";
   const uid = searchParams.get("uid");
+  const [transcript, setTranscript] = useState<string>("");
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
   const { joined, remoteUsers, join, leave, localRef } = useAgora(
@@ -15,6 +21,119 @@ export default function VideoClient() {
     channel,
     uid || ""
   );
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+
+        recognition.onresult = (event: SpeechRecognitionEvent) => {
+          const current = event.resultIndex;
+          const result = event.results[current];
+          if (result.isFinal) {
+            const newTranscript = result[0].transcript;
+            console.log('New transcript segment:', newTranscript);
+            const speakerPrefix = isSpeaking ? `[${uid}]: ` : '';
+            setTranscript((prev) => prev + "\n" + speakerPrefix + newTranscript);
+          }
+        };
+
+        recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+          console.error("Speech recognition error:", event.error);
+        };
+
+        setRecognition(recognition);
+      }
+    }
+  }, [isSpeaking, uid]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const audioContext = new AudioContext();
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const checkAudioLevel = () => {
+      analyser.getByteFrequencyData(dataArray);
+      const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+      
+      if (average > 50) {
+        setIsSpeaking(true);
+      } else {
+        setIsSpeaking(false);
+      }
+      
+      requestAnimationFrame(checkAudioLevel);
+    };
+
+    checkAudioLevel();
+
+    return () => {
+      audioContext.close();
+    };
+  }, []);
+
+  const startTranscribing = () => {
+    if (recognition) {
+      recognition.start();
+      setIsTranscribing(true);
+    }
+  };
+
+  const stopTranscribing = () => {
+    if (recognition) {
+      recognition.stop();
+      setIsTranscribing(false);
+    }
+  };
+
+  const handleEndSession = async () => {
+    try {
+      if (!transcript.trim()) {
+        console.error('No transcript content to save');
+        return;
+      }
+
+      const sessionId = sessionStorage.getItem('session_id') || `session_${Date.now()}`;
+      console.log('Saving transcript:', {
+        contentLength: transcript.length,
+        isTranscribing,
+        sessionId
+      });
+
+      const response = await fetch('/api/transcript/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: transcript,
+          session_id: sessionId
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Failed to save transcript:', errorData);
+        throw new Error(errorData.error || 'Failed to save transcript');
+      }
+
+      const data = await response.json();
+      console.log('Transcript saved successfully:', data);
+
+      router.push('/evaluate');
+    } catch (error) {
+      console.error('Error in handleEndSession:', error);
+      alert('保存转录内容失败，请重试');
+    }
+  };
 
   if (!uid) {
     if (typeof window !== "undefined") {
@@ -40,11 +159,31 @@ export default function VideoClient() {
             Join
           </button>
         ) : (
+          <>
+            <button
+              onClick={leave}
+              className="px-4 py-2 bg-red-500 text-white rounded"
+            >
+              Leave
+            </button>
+            <button
+              onClick={handleEndSession}
+              className="px-4 py-2 bg-green-500 text-white rounded"
+            >
+              End Session
+            </button>
+          </>
+        )}
+        {joined && (
           <button
-            onClick={leave}
-            className="px-4 py-2 bg-red-500 text-white rounded"
+            onClick={isTranscribing ? stopTranscribing : startTranscribing}
+            className={`px-4 py-2 rounded ${
+              isTranscribing
+                ? "bg-red-500 text-white"
+                : "bg-green-500 text-white"
+            }`}
           >
-            Leave
+            {isTranscribing ? "Stop Transcription" : "Start Transcription"}
           </button>
         )}
       </div>
@@ -63,6 +202,15 @@ export default function VideoClient() {
           <RemoteVideoPlayer key={user.uid} user={user} />
         ))}
       </div>
+
+      {isTranscribing && (
+        <div className="mt-4 p-4 bg-gray-100 rounded">
+          <h2 className="text-lg font-semibold mb-2">Live Transcription</h2>
+          <div className="h-40 overflow-y-auto p-2 bg-white rounded transcript-content whitespace-pre-wrap">
+            {transcript}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

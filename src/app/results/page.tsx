@@ -18,6 +18,11 @@ type Evaluation = {
   session_id: string;
 };
 
+type Transcript = {
+  content: string;
+  created_at: string;
+};
+
 type Session = {
   session_id: string;
   session_code: string;
@@ -27,6 +32,7 @@ type Session = {
 
 export default function ResultsPage() {
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  const [transcript, setTranscript] = useState<Transcript | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -93,6 +99,15 @@ export default function ResultsPage() {
       }
 
       setEvaluation(evaluationData);
+
+      // 获取转录内容
+      const transcriptRes = await fetch(`/api/transcript/latest?session_id=${sessionId}`);
+      const transcriptData = await transcriptRes.json();
+
+      if (transcriptRes.ok && transcriptData) {
+        setTranscript(transcriptData);
+      }
+
       setLoading(false);
     };
 
@@ -162,6 +177,16 @@ export default function ResultsPage() {
           <strong>Total Score:</strong> {totalScore} / 28
         </p>
       </div>
+
+      {/* Transcript Section */}
+      {transcript && (
+        <div className="max-w-4xl w-full bg-white shadow p-8 rounded mb-10">
+          <h2 className="text-xl font-semibold mb-4">📝 Session Transcript</h2>
+          <div className="bg-gray-50 p-4 rounded">
+            <p className="whitespace-pre-wrap">{transcript.content}</p>
+          </div>
+        </div>
+      )}
 
       {/* Detail Sections */}
       <div className="grid grid-cols-2 gap-6 max-w-4xl w-full">
