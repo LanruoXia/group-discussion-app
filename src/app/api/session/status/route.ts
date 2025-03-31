@@ -29,37 +29,43 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    // console.log("Session fetched:", session);
-
-    // 将 created_at 转为 UTC 毫秒数
-    const createdAt = new Date(session.created_at).getTime();
+    // 计算剩余时间
+    const waitingStartedAt = new Date(session.waiting_started_at).getTime();
     const now = Date.now();
-    const elapsed = Math.floor((now - createdAt) / 1000);
+    const elapsed = Math.floor((now - waitingStartedAt) / 1000);
     const remaining = Math.max(300 - elapsed, 0);
 
-    // 输出调试日志
-    // console.log("Created at (UTC):", new Date(createdAt).toISOString());
-    // console.log("Current time (UTC):", new Date(now).toISOString());
-    // console.log("Elapsed seconds:", elapsed);
-    // console.log("Remaining seconds:", remaining);
+    // 检查会话状态
+    let status = session.status;
+    if (status === "waiting" && remaining <= 0) {
+      status = "expired";
+      // 更新会话状态
+      await supabase
+        .from("sessions")
+        .update({ status: "expired" })
+        .eq("session_id", session.session_id);
+    }
 
     // 查询参与者列表
     const { data: participants, error: partError } = await supabase
       .from("session_participants")
       .select("username, is_ai, user_id, joined_at")
-      .eq("session_id", session.session_id);
+      .eq("session_id", session.session_id)
+      .order("joined_at", { ascending: true });
 
     if (partError) {
       console.error("Error fetching participants:", partError.message);
-    } else {
-      console.log("Participants fetched:", participants);
+      return NextResponse.json({ error: "Failed to fetch participants" }, { status: 500 });
     }
 
     return NextResponse.json({
       session_id: session.session_id,
+      status,
       test_topic: session.test_topic,
+      instructions: session.instructions,
+      ai_count: session.ai_count,
       created_at: session.created_at,
-      status: session.status, // 假设 status 字段为 "waiting", "active", "expired"
+      waiting_started_at: session.waiting_started_at,
       remaining,
       participants,
     });

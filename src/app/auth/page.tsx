@@ -2,98 +2,157 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../supabase"; // Ensure correct Supabase connection
+import { supabase } from "../supabase";
 
 export default function AuthPage() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLogin, setIsLogin] = useState(true);
   const router = useRouter();
 
-  const handleLogin = async () => {
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      // **Step 1: Query Supabase to fetch user**
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, username, password")
-        .eq("username", username)
-        .single(); // Fetch a single user
+      if (isLogin) {
+        // Login
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-      // ✅ **Handle "No user found" and unexpected errors separately**
-      if (error) {
-        if (error.code === "PGRST116") {
-          setError("❌ Invalid username or password.");
-        } else {
-          setError("⚠️ Unexpected error, please try again.");
+        if (error) throw error;
+
+        if (data.user) {
+          sessionStorage.setItem("user_id", data.user.id);
+          sessionStorage.setItem(
+            "username",
+            data.user.email?.split("@")[0] || "User"
+          );
+          window.dispatchEvent(new Event("storage"));
+          window.location.href = "/";
         }
-        setLoading(false); // **Ensure button resets to "Login"**
-        return;
+      } else {
+        // Register
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+
+        if (data.user) {
+          setError(
+            "✅ Registration successful! Please check your email to confirm your account."
+          );
+          setIsLogin(true);
+        }
       }
-
-      // **Step 2: Check if password matches**
-      if (!data || data.password !== password) {
-        setError("❌ Invalid username or password.");
-        setLoading(false); // **Reset button**
-        return;
-      }
-
-      // **Step 3: Store user_id in sessionStorage**
-      sessionStorage.setItem("user_id", data.id);
-      sessionStorage.setItem("username", data.username);
-
-      // ✅ **Step 4: Notify Navbar to update**
-      window.dispatchEvent(new Event("storage"));
-
-      // **Step 5: Redirect to Home Page**
-      router.push("/");
-    } catch (err) {
-      console.error("⚠️ Login error:", err);
-      setError("⚠️ Unexpected error, please try again.");
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred");
     } finally {
-      setLoading(false); // **Ensure button resets regardless of outcome**
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      setError("Please enter your email address");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+
+      if (error) throw error;
+
+      setError("✅ Password reset instructions sent to your email!");
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-6">
-      <h1 className="text-3xl font-bold mb-6">Login</h1>
+      <h1 className="text-3xl font-bold mb-6">
+        {isLogin ? "Login" : "Register"}
+      </h1>
 
       <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
-        {error && <p className="text-red-500 mb-4">{error}</p>}
+        {error && (
+          <div
+            className={`p-3 rounded mb-4 ${
+              error.includes("✅")
+                ? "bg-green-100 text-green-700"
+                : "bg-red-100 text-red-700"
+            }`}
+          >
+            {error}
+          </div>
+        )}
 
-        <label className="block font-semibold">Username:</label>
-        <input
-          type="text"
-          className="w-full p-2 border rounded mb-4"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
+        <form onSubmit={handleAuth} className="space-y-4">
+          <div>
+            <label className="block font-semibold mb-1">Email:</label>
+            <input
+              type="email"
+              className="w-full p-2 border rounded"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
-        <label className="block font-semibold">Password:</label>
-        <input
-          type="password"
-          className="w-full p-2 border rounded mb-4"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+          <div>
+            <label className="block font-semibold mb-1">Password:</label>
+            <input
+              type="password"
+              className="w-full p-2 border rounded"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
 
-        <button
-          onClick={handleLogin}
-          className="w-full bg-blue-500 text-white py-2 rounded"
-          disabled={loading}
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
-        <p className="mt-4 text-center">
-          Don&apos;t have an account? Register now!
-          <a href="/register" className="text-blue-500 hover:underline">
-            Register here
-          </a>
-        </p>
+          <button
+            type="submit"
+            className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+            disabled={loading}
+          >
+            {loading ? "Processing..." : isLogin ? "Login" : "Register"}
+          </button>
+        </form>
+
+        <div className="mt-4 space-y-2 text-center">
+          <button
+            onClick={() => setIsLogin(!isLogin)}
+            className="text-blue-500 hover:underline"
+          >
+            {isLogin
+              ? "Need an account? Register"
+              : "Already have an account? Login"}
+          </button>
+
+          {isLogin && (
+            <button
+              onClick={handlePasswordReset}
+              className="block w-full text-blue-500 hover:underline"
+            >
+              Forgot password?
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

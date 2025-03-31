@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { v4 as uuidv4 } from "uuid";
 import { customAlphabet } from "nanoid";
+import { v4 as uuidv4 } from "uuid";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,7 +13,13 @@ const generateSessionCode = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { creator, user_id, test_topic = "Group Discussion", aiCount = 0 } = body;
+    const { 
+      creator, 
+      user_id, 
+      testTopic = "Group Discussion", 
+      aiCount = 0,
+      instructions = "Please discuss the topic in English. Each participant should speak for about 2-3 minutes."
+    } = body;
 
     if (!creator || !user_id) {
       return NextResponse.json({ error: "Missing creator or user_id" }, { status: 400 });
@@ -25,64 +31,65 @@ export async function POST(req: Request) {
 
     // Try maximum of 5 times to generate session_code
     for (let i = 0; i < 5; i++) {
-      const newSessionId = uuidv4();
       const newSessionCode = generateSessionCode();
 
-      const { error: insertError } = await supabase.from("sessions").insert([
+      const { data: session, error: insertError } = await supabase.from("sessions").insert([
         {
-          session_id: newSessionId,
           session_code: newSessionCode,
-          test_topic,
+          created_by: user_id,
+          status: "waiting",
+          ai_count: aiCount,
+          test_topic: testTopic,
+          instructions,
+          expires_at: new Date(Date.now() + 300000).toISOString(), // 5 minutes from now
         },
-      ]);
+      ]).select().single();
 
-      if (!insertError) {
-        sessionId = newSessionId;
+      if (!insertError && session) {
+        sessionId = session.id;
         sessionCode = newSessionCode;
         created = true;
         break;
-      } else {
-        console.error("Failed to insert session:", insertError); 
       }
 
-      if (insertError.code !== "23505") {
-        console.error("Database insert error:", insertError.message);
-        return NextResponse.json({ error: "Database error" }, { status: 500 });
+      if (insertError) {
+        console.error("Failed to insert session:", insertError);
+        
+        if (insertError.code !== "23505") { // Not a duplicate error
+          return NextResponse.json({ error: "Database error" }, { status: 500 });
+        }
+        
+        console.warn("Duplicate session_code, retrying...");
       }
-
-      console.warn("Duplicate session_code, retrying...");
     }
 
     if (!created || !sessionId || !sessionCode) {
       return NextResponse.json({ error: "Failed to generate unique session code" }, { status: 500 });
     }
 
-    // Insert information of creator
-    const { error: creatorError } = await supabase.from("session_participants").insert([
-      {
+    // Insert AI participants if any
+    if (aiCount > 0) {
+      const aiParticipants = Array.from({ length: aiCount }).map((_, index) => ({
         session_id: sessionId,
-        username: creator,
-        user_id,
-        is_ai: false,
-      },
-    ]);
-    if (creatorError) throw creatorError;
+        user_id: null,
+        is_ai: true,
+        username: `AI-${index + 1}`, // AI-1, AI-2, etc.
+      }));
 
-    // Insert AI participants
-    const aiParticipants = Array.from({ length: aiCount }).map((_, idx) => ({
-      session_id: sessionId,
-      username: `AI-${idx + 1}`,
-      is_ai: true,
-    }));
-
-    if (aiParticipants.length > 0) {
-      const { error: aiError } = await supabase.from("session_participants").insert(aiParticipants);
-      if (aiError) throw aiError;
+      const { error: aiError } = await supabase.from("participants").insert(aiParticipants);
+      
+      if (aiError) {
+        console.error("Failed to insert AI participants:", aiError);
+        return NextResponse.json({ error: "Failed to add AI participants" }, { status: 500 });
+      }
     }
 
-    return NextResponse.json({ session_id: sessionId, session_code: sessionCode }, { status: 200 });
+    return NextResponse.json({ 
+      session_id: sessionId, 
+      session_code: sessionCode 
+    }, { status: 201 });
   } catch (err: any) {
-    console.error("Error creating session:", err.message);
+    console.error("Error creating session:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
