@@ -2,40 +2,79 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "./supabase";
 
 const Home = () => {
-  const [username, setUsername] = useState<string | null>(null);
+  const [name, setName] = useState<string | null>(null);
   const [channel, setChannel] = useState("");
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const storedUsername = sessionStorage.getItem("username");
-    setUsername(storedUsername);
+    const fetchUserProfile = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          router.push("/auth");
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", session.user.id)
+          .single();
+
+        if (profile?.name) {
+          setName(profile.name);
+        } else {
+          setName(session.user.email?.split("@")[0] || null);
+        }
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+        setName(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserProfile();
 
     const handleStorageChange = () => {
-      setUsername(sessionStorage.getItem("username"));
+      fetchUserProfile();
     };
 
-    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("profile-updated", handleStorageChange);
+
     return () => {
-      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("profile-updated", handleStorageChange);
     };
-  }, []);
+  }, [router]);
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!channel) return;
-    if (!username) {
+    if (!name) {
       alert("⚠️ Please login before joining.");
       router.push("/auth");
       return;
     }
-    router.push(`/video?channel=${channel}&uid=${username}`);
+    router.push(`/video?channel=${channel}&uid=${name}`);
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center mt-20 px-4">
+        <div className="text-xl font-medium text-gray-600">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center mt-20 px-4">
-      <h1 className="text-3xl font-bold mb-6">Hi {username ?? "Guest"} 👋</h1>
+      <h1 className="text-3xl font-bold mb-6">Hi {name ?? "Guest"} 👋</h1>
 
       <form onSubmit={handleJoin} className="space-y-4 w-full max-w-xs">
         <input
