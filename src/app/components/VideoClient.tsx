@@ -13,6 +13,14 @@ export default function VideoClient() {
   const [transcript, setTranscript] = useState<string>("");
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
+  const { joined, remoteUsers, join, leave, localRef } = useAgora(
+    appId,
+    channel,
+    uid || ""
+  );
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -29,7 +37,8 @@ export default function VideoClient() {
           if (result.isFinal) {
             const newTranscript = result[0].transcript;
             console.log('New transcript segment:', newTranscript);
-            setTranscript((prev) => prev + " " + newTranscript);
+            const speakerPrefix = isSpeaking ? `[${uid}]: ` : '';
+            setTranscript((prev) => prev + "\n" + speakerPrefix + newTranscript);
           }
         };
 
@@ -40,6 +49,35 @@ export default function VideoClient() {
         setRecognition(recognition);
       }
     }
+  }, [isSpeaking, uid]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const audioContext = new AudioContext();
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const checkAudioLevel = () => {
+      analyser.getByteFrequencyData(dataArray);
+      const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+      
+      if (average > 50) {
+        setIsSpeaking(true);
+      } else {
+        setIsSpeaking(false);
+      }
+      
+      requestAnimationFrame(checkAudioLevel);
+    };
+
+    checkAudioLevel();
+
+    return () => {
+      audioContext.close();
+    };
   }, []);
 
   const startTranscribing = () => {
@@ -56,13 +94,6 @@ export default function VideoClient() {
     }
   };
 
-  const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
-  const { joined, remoteUsers, join, leave, localRef } = useAgora(
-    appId,
-    channel,
-    uid || ""
-  );
-
   const handleEndSession = async () => {
     try {
       if (!transcript.trim()) {
@@ -70,7 +101,6 @@ export default function VideoClient() {
         return;
       }
 
-      // 从 sessionStorage 获取 session_id
       const sessionId = sessionStorage.getItem('session_id') || `session_${Date.now()}`;
       console.log('Saving transcript:', {
         contentLength: transcript.length,
@@ -98,7 +128,6 @@ export default function VideoClient() {
       const data = await response.json();
       console.log('Transcript saved successfully:', data);
 
-      // 重定向到评估页面
       router.push('/evaluate');
     } catch (error) {
       console.error('Error in handleEndSession:', error);
@@ -177,7 +206,7 @@ export default function VideoClient() {
       {isTranscribing && (
         <div className="mt-4 p-4 bg-gray-100 rounded">
           <h2 className="text-lg font-semibold mb-2">Live Transcription</h2>
-          <div className="h-40 overflow-y-auto p-2 bg-white rounded transcript-content">
+          <div className="h-40 overflow-y-auto p-2 bg-white rounded transcript-content whitespace-pre-wrap">
             {transcript}
           </div>
         </div>
