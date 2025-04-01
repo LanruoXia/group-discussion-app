@@ -5,24 +5,48 @@ import { useAgora } from "../hooks/useAgora";
 import RemoteVideoPlayer from "../components/agora/RemoteVideoPlayer";
 import { useState, useEffect } from "react";
 
-export default function VideoClient() {
+export default function DiscussionClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const channel = searchParams.get("channel") || "default-room";
+  const channel = searchParams.get("channel");
   const uid = searchParams.get("uid");
+  const autoJoin = searchParams.get("autoJoin") === "true";
+
   const [transcript, setTranscript] = useState<string>("");
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(
     null
   );
   const [isSpeaking, setIsSpeaking] = useState(false);
 
+  useEffect(() => {
+    const checkParams = async () => {
+      if (!channel || !uid) {
+        console.error("Missing required parameters:", { channel, uid });
+        router.replace("/auth");
+        return;
+      }
+      setLoading(false);
+    };
+
+    checkParams();
+  }, [channel, uid, router]);
+
   const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
   const { joined, remoteUsers, join, leave, localRef } = useAgora(
     appId,
-    channel,
+    channel || "",
     uid || ""
   );
+
+  // Auto-join when component mounts if autoJoin is true
+  useEffect(() => {
+    if (autoJoin && !joined && !loading) {
+      join();
+    }
+  }, [autoJoin, joined, loading, join]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -141,12 +165,31 @@ export default function VideoClient() {
     }
   };
 
-  if (!uid) {
-    if (typeof window !== "undefined") {
-      alert("Please login first.");
-      window.location.href = "/auth";
-    }
-    return null;
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Initializing video call...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => router.replace("/auth")}
+            className="px-4 py-2 bg-blue-500 text-white rounded"
+          >
+            Return to Login
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

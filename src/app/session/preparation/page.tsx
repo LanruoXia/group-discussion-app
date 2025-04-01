@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../supabase";
 
+// Type definition for session status and related data
 type SessionStatus = {
   id: string;
   status:
     | "waiting"
     | "preparation"
+    | "ready"
     | "discussion"
     | "evaluation"
     | "completed"
@@ -25,363 +27,212 @@ export default function PreparationPage() {
   const searchParams = useSearchParams();
   const code = searchParams.get("code");
 
+  // State management for session data and UI
   const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(
     null
   );
-  const [timeRemaining, setTimeRemaining] = useState<number>(600); // 10 minutes in seconds
+  const [timeRemaining, setTimeRemaining] = useState<number>(600); // 10 minutes preparation time
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Disable navigation and handle page refresh/close
+  // Effect to disable navigation and prevent page refresh during preparation
   useEffect(() => {
-    // Disable navigation bar
     const style = document.createElement("style");
     style.innerHTML = `
-      nav {
+      nav, nav *, header, header * {
         pointer-events: none !important;
         opacity: 0.5 !important;
-      }
-      nav * {
-        pointer-events: none !important;
-      }
-      header {
-        pointer-events: none !important;
-        opacity: 0.5 !important;
-      }
-      header * {
-        pointer-events: none !important;
       }
     `;
     document.head.appendChild(style);
 
-    // Handle page refresh and close
+    // Prevent accidental page refresh or navigation
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
-
-    // Handle navigation attempts
-    const handlePopState = (e: PopStateEvent) => {
-      e.preventDefault();
-      window.history.pushState(null, "", window.location.href);
-    };
-
-    // Add event listeners
     window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("popstate", handlePopState);
-    window.history.pushState(null, "", window.location.href);
 
-    // Cleanup function
+    // Cleanup function to remove styles and event listener
     return () => {
       document.head.removeChild(style);
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("popstate", handlePopState);
     };
   }, []);
 
-  // Get session information and sync time
+  // Function to fetch session status and initialize preparation time
   const fetchSessionStatus = async () => {
     if (!code) return;
 
-    try {
-      console.log("Polling session status...");
-      const { data: initialSession, error: sessionError } = await supabase
-        .from("sessions")
-        .select("*")
-        .eq("session_code", code)
-        .single();
+    // Fetch session data from Supabase
+    const { data, error } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("session_code", code)
+      .single();
 
-      if (sessionError || !initialSession) {
-        setError("Session not found");
-        setLoading(false);
-        return;
-      }
-
-      // If session status is not preparation, redirect to appropriate page
-      if (initialSession.status !== "preparation") {
-        console.log("Current session status:", initialSession.status);
-        if (initialSession.status === "discussion") {
-          console.log(
-            "Session status changed to discussion, redirecting all users..."
-          );
-          router.replace(`/session/discussion?code=${code}`);
-          return;
-        }
-        setError(`Invalid session status: ${initialSession.status}`);
-        setLoading(false);
-        return;
-      }
-
-      let currentSession = initialSession;
-
-      // If preparation_start_time is not set, set it now
-      if (!currentSession.preparation_start_time) {
-        const now = new Date().toISOString();
-        const { error: updateError } = await supabase
-          .from("sessions")
-          .update({ preparation_start_time: now })
-          .eq("id", currentSession.id);
-
-        if (updateError) {
-          console.error("Error updating preparation start time:", updateError);
-          setError("Failed to initialize preparation timer");
-          setLoading(false);
-          return;
-        }
-
-        // Fetch updated session to ensure we have the latest data
-        const { data: updatedSession, error: refreshError } = await supabase
-          .from("sessions")
-          .select("*")
-          .eq("id", currentSession.id)
-          .single();
-
-        if (refreshError || !updatedSession) {
-          console.error("Error refreshing session data:", refreshError);
-          setError("Failed to refresh session data");
-          setLoading(false);
-          return;
-        }
-
-        // Use the updated session data
-        currentSession = updatedSession;
-      }
-
-      // Calculate remaining time based on preparation_start_time
-      const startTime = new Date(
-        currentSession.preparation_start_time!
-      ).getTime();
-      const now = Date.now();
-      const elapsedSeconds = Math.floor((now - startTime) / 1000);
-      const remainingSeconds = Math.max(0, 600 - elapsedSeconds); // 600 seconds = 10 minutes
-
-      console.log("Time sync - Remaining seconds:", remainingSeconds);
-
-      // Only update time if the difference is more than 2 seconds
-      // This prevents minor flickering due to network latency
-      if (Math.abs(remainingSeconds - timeRemaining) > 2) {
-        console.log(
-          "Adjusting time - Local:",
-          timeRemaining,
-          "Server:",
-          remainingSeconds
-        );
-        setTimeRemaining(remainingSeconds);
-      }
-
-      setSessionStatus(currentSession);
-      setLoading(false);
-
-      // If time is already up, proceed to discussion
-      if (remainingSeconds <= 0) {
-        handlePreparationComplete();
-      }
-    } catch (err) {
-      console.error("Error fetching session:", err);
-      setError("Failed to fetch session data");
-      setLoading(false);
-    }
-  };
-
-  // 处理准备阶段结束
-  const handlePreparationComplete = async () => {
-    if (!sessionStatus) return;
-
-    try {
-      const { error: updateError } = await supabase
-        .from("sessions")
-        .update({ status: "discussion" })
-        .eq("id", sessionStatus.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      router.replace(`/session/discussion?code=${code}`);
-    } catch (err) {
-      console.error("Error updating session status:", err);
-      setError("Failed to proceed to discussion");
-    }
-  };
-
-  // Initialize session information and set up realtime subscription
-  useEffect(() => {
-    if (!code) {
-      setError("No session code provided");
+    if (error || !data) {
+      setError("Session not found");
       setLoading(false);
       return;
     }
 
-    // Initial fetch
+    // Validate session status
+    if (data.status !== "preparation") {
+      setError(`Invalid session status: ${data.status}`);
+      setLoading(false);
+      return;
+    }
+
+    let current = data;
+
+    // Initialize preparation start time if not set
+    if (!current.preparation_start_time) {
+      const now = new Date().toISOString();
+      await supabase
+        .from("sessions")
+        .update({ preparation_start_time: now })
+        .eq("id", current.id);
+      const refreshed = await supabase
+        .from("sessions")
+        .select("*")
+        .eq("id", current.id)
+        .single();
+      if (refreshed.data) current = refreshed.data;
+    }
+
+    // Calculate remaining preparation time
+    const elapsed = Math.floor(
+      (Date.now() - new Date(current.preparation_start_time).getTime()) / 1000
+    );
+    const remaining = Math.max(600 - elapsed, 0);
+    setSessionStatus(current);
+    setTimeRemaining(remaining);
+    setLoading(false);
+
+    // Automatically transition to ready state if time is up
+    if (remaining <= 0) {
+      broadcastReady(current.id);
+    }
+  };
+
+  // Function to broadcast ready status and transition to discussion
+  const broadcastReady = async (sessionId: string) => {
+    // Subscribe to the channel for status updates
+    await supabase.channel(`session_status_${code}`).subscribe();
+    // Broadcast status change to all participants
+    await supabase.channel(`session_status_${code}`).send({
+      type: "broadcast",
+      event: "status_change",
+      payload: { status: "ready" },
+    });
+    // Update session status in database
+    await supabase
+      .from("sessions")
+      .update({ status: "ready" })
+      .eq("id", sessionId);
+    // Navigate to discussion room page
+    router.replace(`/session/discussion?code=${code}`);
+  };
+
+  // Effect to initialize session status and set up broadcast listener
+  useEffect(() => {
+    if (!code) return;
     fetchSessionStatus();
 
-    console.log("Setting up realtime subscription for session:", code);
-
-    // Set up realtime subscription using broadcast channel
+    // Set up real-time channel subscription for status updates
     const channel = supabase
       .channel(`session_status_${code}`)
       .on("broadcast", { event: "status_change" }, (payload) => {
-        console.log("Received broadcast message:", payload);
-        if (payload.status === "discussion") {
-          console.log("Received status change to discussion, redirecting...");
+        if (payload.payload?.status === "ready") {
           router.replace(`/session/discussion?code=${code}`);
         }
       })
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          console.log("Successfully subscribed to broadcast channel");
-        } else {
-          console.log("Subscription status:", status);
-        }
+        console.log("🔔 Broadcast status:", status);
       });
 
-    // Cleanup subscription
+    // Cleanup function to unsubscribe from channel
     return () => {
-      console.log("Cleaning up subscription");
       channel.unsubscribe();
     };
   }, [code]);
 
-  // Debug button click handler
-  const handleDebugSkip = async () => {
-    if (!sessionStatus) return;
-    try {
-      console.log(
-        "Debug button clicked, updating session status to discussion..."
-      );
-
-      // First broadcast the status change
-      const channel = supabase.channel(`session_status_${code}`);
-      await channel.subscribe();
-      await channel.send({
-        type: "broadcast",
-        event: "status_change",
-        status: "discussion",
-      });
-
-      // Then update database
-      const { error: updateError } = await supabase
-        .from("sessions")
-        .update({ status: "discussion" })
-        .eq("id", sessionStatus.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      console.log(
-        "Debug: Session status updated to discussion, redirecting..."
-      );
-      router.replace(`/session/discussion?code=${code}`);
-    } catch (err) {
-      console.error("Error updating session status:", err);
-      setError("Failed to update session status");
-    }
-  };
-
-  // Local countdown effect - updates every second but syncs with server every 10s
+  // Effect to handle countdown timer
   useEffect(() => {
-    if (loading || error || !sessionStatus || timeRemaining <= 0) return;
-
-    const intervalId = setInterval(() => {
+    if (!sessionStatus || timeRemaining <= 0) return;
+    const timer = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
-          clearInterval(intervalId);
-          handlePreparationComplete();
+          clearInterval(timer);
+          broadcastReady(sessionStatus.id);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
+    // Cleanup function to clear timer
+    return () => clearInterval(timer);
+  }, [sessionStatus, timeRemaining]);
 
-    return () => clearInterval(intervalId);
-  }, [loading, error, sessionStatus, timeRemaining]);
+  // Loading state UI
+  if (loading) {
+    return <div className="text-center p-8">⏳ Loading...</div>;
+  }
 
+  // Error state UI
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md w-full">
-          <div className="text-red-600 text-xl mb-4">{error}</div>
-          <button
-            onClick={() => router.push("/")}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-          >
-            Back to Home
-          </button>
-        </div>
+      <div className="text-center p-8 text-red-600">
+        ❌ {error} <br />
+        <a href="/" className="underline">
+          Back to Home
+        </a>
       </div>
     );
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
+  // Main preparation page UI
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
-            Preparation Time
-          </h1>
+    <div className="p-8 max-w-3xl mx-auto">
+      <h1 className="text-3xl font-bold text-center mb-6">🧭 Preparation</h1>
+      {/* Countdown timer display */}
+      <p className="text-center text-xl mb-4">
+        Time remaining:{" "}
+        <span className="font-mono text-2xl">
+          {String(Math.floor(timeRemaining / 60)).padStart(2, "0")}:
+          {String(timeRemaining % 60).padStart(2, "0")}
+        </span>
+      </p>
 
-          {/* 倒计时显示 */}
-          <div className="mb-8 text-center">
-            <div className="text-2xl font-bold text-blue-600">
-              Time remaining: {Math.floor(timeRemaining / 60)}:
-              {(timeRemaining % 60).toString().padStart(2, "0")}
-            </div>
-            <div className="text-gray-600 mt-2">
-              Please read the instructions carefully before the discussion
-              starts.
-            </div>
+      {sessionStatus && (
+        <>
+          {/* Topic display section */}
+          <div className="bg-white shadow rounded p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-2">💬 Topic</h2>
+            <p>{sessionStatus.test_topic}</p>
           </div>
 
-          {/* 讨论主题 */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-2 text-gray-700">
-              Discussion Topic
-            </h2>
-            <p className="text-lg text-gray-600">{sessionStatus?.test_topic}</p>
+          {/* Instructions display section */}
+          <div className="bg-gray-50 p-6 rounded mb-6">
+            <h2 className="text-xl font-semibold mb-2">📋 Instructions</h2>
+            <p className="whitespace-pre-wrap">
+              {sessionStatus.instructions ||
+                "Each participant should speak for 2–3 minutes."}
+            </p>
           </div>
 
-          {/* 说明 */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-2 text-gray-700">
-              Instructions
-            </h2>
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <p className="text-gray-600 whitespace-pre-wrap">
-                {sessionStatus?.instructions ||
-                  "Please discuss the topic in English. Each participant should speak for about 2-3 minutes."}
-              </p>
-            </div>
-          </div>
-
-          {/* Debug button - Remove in production */}
-          <div className="mb-8 text-center">
+          {/* Debug button for skipping preparation */}
+          <div className="text-center">
             <button
-              onClick={handleDebugSkip}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              onClick={() => broadcastReady(sessionStatus.id)}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
             >
-              Debug: Skip to Discussion
+              🔧 Debug: Skip to Ready
             </button>
           </div>
-
-          {/* Prompt */}
-          <div className="text-center text-sm text-gray-500">
-            The discussion will start automatically when the preparation time is
-            up.
-            <br />
-            Make sure you understand the topic and instructions before
-            proceeding.
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
