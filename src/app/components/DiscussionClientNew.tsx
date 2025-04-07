@@ -1,3 +1,5 @@
+//src/app/components/DiscussionClientNew.tsx
+
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -5,6 +7,36 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useDiscussionAgora } from "../hooks/useDiscussionAgora";
 import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
+import { useMediaRecorder } from "../hooks/useMediaRecorder";
+
+// 定义字幕记录的类型
+interface CaptionEntry {
+  speaker: string;
+  text: string;
+  timestamp: number;
+  uid: string;
+}
+
+// 精简标点符号函数，只保留英语处理
+function addPunctuation(text: string): string {
+  // 如果文本已经以标点符号结尾，则直接返回
+  if (/[.!?]$/.test(text)) {
+    return text;
+  }
+
+  // 英文标点规则
+  if (/^(what|who|when|where|why|how|which)/i.test(text)) {
+    return `${text}?`;
+  } else if (
+    /^(can|could|would|will|shall|should|may|might|must)/i.test(text)
+  ) {
+    return `${text}?`;
+  } else if (/^(oh|wow|ah|ouch|hey|hi|hello|damn|no|yes)/i.test(text)) {
+    return `${text}!`;
+  } else {
+    return `${text}.`;
+  }
+}
 
 export default function DiscussionClient() {
   const router = useRouter();
@@ -23,6 +55,11 @@ export default function DiscussionClient() {
   const [transcript, setTranscript] = useState("");
   const transcriptRef = useRef<HTMLDivElement>(null);
 
+  // Web Speech API 相关状态
+  const [recognition, setRecognition] = useState<any>(null);
+  const [captions, setCaptions] = useState<CaptionEntry[]>([]);
+  const [segments, setSegments] = useState<any[]>([]);
+
   // Initialize Agora client
   const {
     localAudioTrack,
@@ -31,8 +68,26 @@ export default function DiscussionClient() {
     leave: leaveChannel,
     join: joinChannel,
     ready: agoraReady,
-    captions,
   } = useDiscussionAgora();
+
+  const { startRecording, stopRecording, recording } = useMediaRecorder(
+    async (blob) => {
+      const formData = new FormData();
+      formData.append("audio", blob, "audio.webm");
+      formData.append("speaker", displayName || "Unknown");
+
+      const res = await fetch("/api/whisper-stt", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+      if (result.transcript) {
+        setSegments(result.transcript); // ✅ 保存 transcript
+        console.log("📝 Transcribed:", result.transcript);
+      }
+    }
+  );
 
   const [participants, setParticipants] = useState<
     Array<{
@@ -47,6 +102,11 @@ export default function DiscussionClient() {
     try {
       if (!sessionId || !uid) return;
 
+      // 停止语音识别
+      if (recognition) {
+        recognition.stop();
+      }
+
       // Leave Agora channel
       await leaveChannel();
 
@@ -57,131 +117,119 @@ export default function DiscussionClient() {
       setError("Failed to leave discussion properly");
     }
   };
-  const [resourceId, setResourceId] = useState<string | null>(null);
-  const [taskId, setTaskId] = useState<string | null>(null);
-  const [builderToken, setBuilderToken] = useState<string | null>(null);
 
-  const startTranscription = async () => {
-    if (!channel) return;
+  // 使用 Web Speech API 开始字幕识别
+  const startCaptions = () => {
+    if (!displayName) return;
 
-    // 1. 获取 builderToken
-    const tokenRes = await fetch("/api/agora/transcription/builder-token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ instanceId: channel }),
-    });
-
-    const tokenData = await tokenRes.json();
-    if (!tokenRes.ok || !tokenData.builderToken) {
-      console.error("Failed to get builderToken:", tokenData);
-      return;
-    }
-
-    setBuilderToken(tokenData.builderToken);
-
-    // 2. 获取 subBot (2001) 和 pubBot (2002) 的 RTC Token
-    const getRtcToken = async (uid: string) => {
-      const res = await fetch(
-        `/api/agora/token?channelName=${channel}&uid=${uid}`
-      );
-      const data = await res.json();
-      if (!res.ok || !data.token)
-        throw new Error(`Failed to fetch token for uid ${uid}`);
-      return data.token;
-    };
-
-    let subToken, pubToken;
     try {
-      subToken = await getRtcToken("2001");
-      pubToken = await getRtcToken("2002");
-    } catch (err) {
-      console.error("Error getting RTC tokens for bots:", err);
-      return;
+      // 检查浏览器支持
+      if (
+        !("webkitSpeechRecognition" in window) &&
+        !("SpeechRecognition" in window)
+      ) {
+        alert(
+          "Your browser doesn't support speech recognition. Please use Chrome, Edge or Safari."
+        );
+        return;
+      }
+
+      // 创建语音识别实例
+      const SpeechRecognition =
+        (window as any).SpeechRecognition ||
+        (window as any).webkitSpeechRecognition;
+      const recognitionInstance = new SpeechRecognition();
+
+      // 配置语音识别
+      recognitionInstance.continuous = true; // 持续识别
+      recognitionInstance.interimResults = true; // 返回中间结果
+      recognitionInstance.lang = "en-US"; // 固定为英语
+
+      // 处理识别结果
+      recognitionInstance.onresult = (event: any) => {
+        const last = event.results.length - 1;
+        const result = event.results[last];
+
+        if (result.isFinal) {
+          let finalText = result[0].transcript.trim();
+
+          // 将首字母大写并添加标点符号
+          if (finalText) {
+            // 首字母大写
+            finalText = finalText.charAt(0).toUpperCase() + finalText.slice(1);
+            // 添加标点符号
+            finalText = addPunctuation(finalText);
+
+            console.log("🎤 Speech recognized (final):", finalText);
+
+            // 创建新的字幕条目
+            const newCaption: CaptionEntry = {
+              speaker: displayName,
+              text: finalText,
+              timestamp: Date.now(),
+              uid: uid || "unknown",
+            };
+
+            setCaptions((prev) => [...prev, newCaption]);
+
+            // 滚动到底部
+            if (transcriptRef.current) {
+              transcriptRef.current.scrollTop =
+                transcriptRef.current.scrollHeight;
+            }
+          }
+        } else {
+          // 可选：处理非最终结果
+          console.log("🎤 Speech recognized (interim):", result[0].transcript);
+        }
+      };
+
+      // 处理错误
+      recognitionInstance.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        if (event.error === "no-speech") {
+          console.log("No speech detected");
+        }
+      };
+
+      // 处理识别结束
+      recognitionInstance.onend = () => {
+        console.log("Speech recognition ended");
+        // 如果仍然在转录模式，重新启动
+        if (transcribing) {
+          console.log("Restarting speech recognition...");
+          recognitionInstance.start();
+        }
+      };
+
+      // 启动识别
+      recognitionInstance.start();
+      console.log("🎙️ Started speech recognition");
+      setRecognition(recognitionInstance);
+      setTranscribing(true);
+    } catch (error) {
+      console.error("Failed to start speech recognition:", error);
+      alert("Failed to start speech recognition");
     }
-
-    // 3. 启动转录服务
-    const startRes = await fetch("/api/agora/transcription/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        builderToken: tokenData.builderToken,
-        channelName: channel,
-        subBotToken: subToken,
-        pubBotToken: pubToken,
-      }),
-    });
-
-    const startData = await startRes.json();
-    if (!startRes.ok || !startData.taskId) {
-      console.error("Failed to start transcription:", startData);
-      return;
-    }
-
-    console.log("Transcription started:", startData);
-    setTaskId(startData.taskId);
-    setTranscribing(true);
   };
 
-  const stopTranscription = async () => {
-    if (!builderToken || !taskId) {
-      alert("Missing transcription parameters");
-      return;
+  // 停止字幕识别
+  const stopCaptions = () => {
+    if (recognition) {
+      recognition.stop();
+      setRecognition(null);
     }
-
-    // ✅ Step 1: 先检查任务状态
-    const statusRes = await fetch("/api/agora/transcription/status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        builderToken,
-        taskId,
-      }),
-    });
-
-    const statusData = await statusRes.json();
-
-    if (!statusRes.ok || !statusData.status) {
-      console.error("❌ Failed to query transcription status:", statusData);
-      alert("查询转录状态失败，无法停止！");
-      return;
-    }
-
-    console.log("🎯 Transcription status is:", statusData.status);
-
-    // ✅ Step 2: 仅当状态为 STARTED 或 IN_PROGRESS 时才允许停止
-    if (!["STARTED", "IN_PROGRESS"].includes(statusData.status)) {
-      alert(`当前转录状态为 ${statusData.status}，无法停止任务`);
-      return;
-    }
-
-    // ✅ Step 3: 正式调用 stop 接口
-    console.log("🛑 Stopping transcription with:", { builderToken, taskId });
-
-    const res = await fetch("/api/agora/transcription/stop", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        builderToken,
-        taskId,
-      }),
-    });
-
-    const result = await res.json();
-    if (result.success) {
-      console.log("✅ Transcription stopped:", result.status);
-      alert("字幕生成已完成！");
-    } else {
-      console.error("❌ Failed to stop transcription:", result);
-      alert("停止转录失败，请检查控制台");
-    }
-
     setTranscribing(false);
+    console.log("🛑 Stopped speech recognition");
   };
 
   // Handle window close/refresh
   useEffect(() => {
     const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
       e.preventDefault();
+      if (recognition) {
+        recognition.stop();
+      }
       await handleLeave();
       e.returnValue = "";
     };
@@ -189,8 +237,11 @@ export default function DiscussionClient() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (recognition) {
+        recognition.stop();
+      }
     };
-  }, [sessionId, uid]);
+  }, [sessionId, uid, recognition]);
 
   // Initialize session
   useEffect(() => {
@@ -217,7 +268,14 @@ export default function DiscussionClient() {
 
         // Auto-join if specified
         if (autoJoin && agoraReady) {
+          console.log(
+            "🔄 Auto-joining Agora channel:",
+            channel,
+            "with UID:",
+            uid
+          );
           await joinChannel(channel, uid);
+          console.log("✅ Successfully joined Agora channel!");
         }
 
         setLoading(false);
@@ -260,6 +318,15 @@ export default function DiscussionClient() {
     fetchParticipants();
   }, [sessionId, supabase]);
 
+  // 确保在页面卸载前停止语音识别
+  useEffect(() => {
+    return () => {
+      if (recognition) {
+        recognition.stop();
+      }
+    };
+  }, [recognition]);
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center">
@@ -292,7 +359,7 @@ export default function DiscussionClient() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Discussion Room</h1>
-          <div className="space-x-2">
+          <div className="flex items-center space-x-2">
             <button
               onClick={handleLeave}
               className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
@@ -301,17 +368,17 @@ export default function DiscussionClient() {
             </button>
             {!transcribing ? (
               <button
-                onClick={startTranscription}
+                onClick={startCaptions}
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
               >
-                Start Transcribe
+                Start Caption
               </button>
             ) : (
               <button
-                onClick={stopTranscription}
+                onClick={stopCaptions}
                 className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
               >
-                Stop Transcribe
+                Stop Caption
               </button>
             )}
           </div>
@@ -399,7 +466,15 @@ export default function DiscussionClient() {
                   className="w-full h-full"
                   ref={(el) => {
                     if (el) {
-                      user.videoTrack?.play(el);
+                      console.log(`🎥 Playing video for user: ${user.uid}`);
+                      try {
+                        user.videoTrack?.play(el);
+                      } catch (error) {
+                        console.error(
+                          `❌ Error playing video for user ${user.uid}:`,
+                          error
+                        );
+                      }
                     }
                   }}
                 />
@@ -407,6 +482,7 @@ export default function DiscussionClient() {
               <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
                 {participants.find((p) => p.user_id === user.uid)
                   ?.display_name || "Unknown"}
+                {!user.videoTrack && " (Video Off)"}
               </div>
             </div>
           ))}
@@ -442,24 +518,66 @@ export default function DiscussionClient() {
               </div>
             ))}
         </div>
-      </div>
-      {transcribing && (
-        <div
-          ref={transcriptRef}
-          className="h-40 overflow-y-auto whitespace-pre-wrap font-mono text-sm bg-gray-100 p-2 rounded border border-gray-300"
-        >
-          {captions.map((line, index) => {
-            const speaker =
-              participants.find((p) => p.user_id === line.uid)?.display_name ||
-              "Unknown";
-            return (
-              <div key={index}>
-                <strong>{speaker}:</strong> {line.text}
+        <div>
+          {!recording ? (
+            <button
+              onClick={startRecording}
+              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+            >
+              🎙️ Start Test Recording
+            </button>
+          ) : (
+            <button
+              onClick={stopRecording}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              🛑 Stop & Transcribe
+            </button>
+          )}
+          <div className="bg-white rounded-lg p-4 shadow">
+            {segments.map((seg, index) => (
+              <div key={index} className="mb-2 text-sm">
+                <span className="text-blue-600 font-semibold">
+                  {seg.speaker}
+                </span>{" "}
+                <span className="text-gray-400">
+                  [{seg.start.toFixed(1)}s - {seg.end.toFixed(1)}s]
+                </span>
+                : <span className="text-gray-800">{seg.text}</span>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
-      )}
+
+        {/* 字幕区域 */}
+        {transcribing && (
+          <div className="mt-6">
+            <h2 className="text-lg font-semibold mb-2">Live Captions</h2>
+            <div
+              ref={transcriptRef}
+              className="max-h-64 overflow-y-auto whitespace-pre-wrap text-sm bg-white p-4 rounded-lg shadow-sm border border-gray-200"
+            >
+              {captions.length > 0 ? (
+                captions.map((caption, index) => (
+                  <div key={index} className="mb-2">
+                    <span className="font-bold text-blue-600">
+                      {caption.speaker}:{" "}
+                    </span>
+                    <span className="text-gray-800">{caption.text}</span>
+                    <span className="text-xs text-gray-400 ml-2">
+                      {new Date(caption.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 italic">
+                  Start speaking to see captions appear here...
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

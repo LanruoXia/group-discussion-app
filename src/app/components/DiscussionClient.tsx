@@ -4,7 +4,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { useDiscussionAgora } from "../hooks/useDiscussionAgora";
+import { useDiscussionAgora } from "../hooks/useDiscussionAgora-backup";
 import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 
 export default function DiscussionClient() {

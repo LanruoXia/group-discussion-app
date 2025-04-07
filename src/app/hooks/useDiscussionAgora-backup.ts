@@ -16,6 +16,7 @@ export interface UseDiscussionAgoraReturn {
   join: (channel: string, uid: string) => Promise<void>;
   leave: () => Promise<void>;
   ready: boolean;
+  captions: Array<{ uid: string; text: string }>; 
 }
 
 export function useDiscussionAgora(): UseDiscussionAgoraReturn {
@@ -162,5 +163,6 @@ export function useDiscussionAgora(): UseDiscussionAgoraReturn {
     join,
     leave,
     ready,
+    captions,
   };
 } 
