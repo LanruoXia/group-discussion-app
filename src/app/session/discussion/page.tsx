@@ -16,9 +16,12 @@ export default function DiscussionPage() {
     const checkSessionAndRedirect = async () => {
       try {
         if (!code) {
+          console.log("No session code provided");
           router.replace("/");
           return;
         }
+
+        console.log("Checking session for code:", code);
 
         const {
           data: { session },
@@ -26,32 +29,90 @@ export default function DiscussionPage() {
         } = await supabase.auth.getSession();
 
         if (sessionError) {
+          console.error("Session error details:", {
+            message: sessionError.message,
+            status: sessionError.status,
+            name: sessionError.name,
+          });
           throw sessionError;
         }
 
         if (!session) {
+          console.log("No active session found, redirecting to auth");
           router.replace("/auth");
           return;
         }
 
-        // Get user details from session
+        // Get user ID
         const userId = session.user.id;
-        const { data: userProfile, error: userError } = await supabase
-          .from("profiles")
-          .select("name")
-          .eq("id", userId)
+
+        // First, get the session ID from the sessions table using the code
+        console.log("Looking up session ID by session_code:", code);
+        const { data: sessionData, error: sessionLookupError } = await supabase
+          .from("sessions")
+          .select("id")
+          .eq("session_code", code)
           .single();
 
-        if (userError) {
-          throw userError;
+        if (sessionLookupError) {
+          console.error(
+            "Error looking up session by code:",
+            sessionLookupError
+          );
+          throw new Error(
+            `Could not find session with code: ${code}. Error: ${sessionLookupError.message}`
+          );
         }
 
-        const userName = userProfile?.name || userId;
+        if (!sessionData) {
+          console.error("No session found with code:", code);
+          throw new Error(`Session not found with code: ${code}`);
+        }
 
-        // Redirect to discussion room with necessary parameters
-        router.replace(
-          `/discussion-room?channel=${code}&uid=${userName}&autoJoin=true`
+        const sessionId = sessionData.id;
+        console.log("Found session with ID:", sessionId);
+
+        // Now use the actual session ID to get participants
+        console.log("Fetching participants for session ID:", sessionId);
+        const { data: participants, error: participantsError } = await supabase
+          .from("participants")
+          .select("user_id, is_ai")
+          .eq("session_id", sessionId)
+          .order("created_at", { ascending: true });
+
+        if (participantsError) {
+          console.error("Error fetching participants:", participantsError);
+          throw new Error(
+            `Failed to fetch participants: ${participantsError.message}`
+          );
+        }
+
+        if (!participants || participants.length === 0) {
+          console.log("No participants found for session ID:", sessionId);
+          throw new Error("No participants found for this session");
+        }
+
+        console.log("Found participants:", participants);
+
+        // Assign display names (A, B, C, D) based on join order
+        const displayNames = ["A", "B", "C", "D"];
+        const participantIndex = participants.findIndex(
+          (p) => p.user_id === userId
         );
+
+        if (participantIndex === -1) {
+          console.warn("User not found in participants list");
+        }
+
+        const displayName =
+          participantIndex >= 0 ? displayNames[participantIndex] : "Unknown";
+
+        console.log("Assigned display name:", displayName);
+
+        // Redirect to discussion room with user ID and display name
+        const redirectUrl = `/discussion-room?channel=${code}&uid=${userId}&displayName=${displayName}`;
+        console.log("Redirecting to:", redirectUrl);
+        router.replace(redirectUrl);
       } catch (err) {
         console.error("Error checking session:", err);
         setError(err instanceof Error ? err.message : "An error occurred");

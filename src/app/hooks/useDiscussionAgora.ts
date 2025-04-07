@@ -1,109 +1,168 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from "react";
 import AgoraRTC, {
   IAgoraRTCClient,
   IAgoraRTCRemoteUser,
+  ILocalAudioTrack,
+  ILocalVideoTrack,
   ICameraVideoTrack,
   IMicrophoneAudioTrack,
-} from 'agora-rtc-sdk-ng';
+} from "agora-rtc-sdk-ng";
+import protoRoot from "@/protobuf/SttMessage_es6.js";
 
-export const useDiscussionAgora = (appId: string, channel: string, uid: string) => {
+export interface UseDiscussionAgoraReturn {
+  localAudioTrack: ILocalAudioTrack | null;
+  localVideoTrack: ILocalVideoTrack | null;
+  remoteUsers: IAgoraRTCRemoteUser[];
+  join: (channel: string, uid: string) => Promise<void>;
+  leave: () => Promise<void>;
+  ready: boolean;
+  captions: Array<{ uid: string; text: string }>; 
+}
+
+export function useDiscussionAgora(): UseDiscussionAgoraReturn {
   const [client, setClient] = useState<IAgoraRTCClient | null>(null);
-  const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
-  const [localVideoTrack, setLocalVideoTrack] = useState<ICameraVideoTrack | null>(null);
+  const [localAudioTrack, setLocalAudioTrack] = useState<ILocalAudioTrack | null>(null);
+  const [localVideoTrack, setLocalVideoTrack] = useState<ILocalVideoTrack | null>(null);
   const [remoteUsers, setRemoteUsers] = useState<IAgoraRTCRemoteUser[]>([]);
-  const [joined, setJoined] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [captions, setCaptions] = useState<Array<{ uid: string; text: string }>>([]);
 
-  // Initialize client
+  // Initialize Agora client
   useEffect(() => {
-    const rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-    setClient(rtcClient);
+    const init = async () => {
+      const agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+      
+      // Handle user published events
+      agoraClient.on("user-published", async (user, mediaType) => {
+        await agoraClient.subscribe(user, mediaType);
+        if (mediaType === "video") {
+          setRemoteUsers(prev => [...prev, user]);
+        }
+        if (mediaType === "audio") {
+          user.audioTrack?.play();
+        }
+      });
 
+      // Handle user unpublished events
+      agoraClient.on("user-unpublished", (user, mediaType) => {
+        if (mediaType === "video") {
+          setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid));
+        }
+        if (mediaType === "audio") {
+          user.audioTrack?.stop();
+        }
+      });
+
+      // Handle user left events
+      agoraClient.on("user-left", (user) => {
+        setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid));
+      });
+      agoraClient.on("stream-message", (uid, buffer) => {
+        console.log("📨 Received stream message from uid:", uid);
+        console.log("Buffer length:", buffer.byteLength);
+        
+        try {
+          const TextMessage = protoRoot.lookupType("Agora.SpeechToText.Text");
+          console.log("Decoding message with TextMessage type");
+          
+          const message = TextMessage.decode(buffer);
+          console.log("Decoded message:", message);
+          
+          const words = message.words || [];
+          console.log("Words array:", words);
+          
+          const finalText = words
+            .filter((w: any) => w.isFinal)
+            .map((w: any) => w.text)
+            .join(" ");
+          
+          console.log("Final text:", finalText);
+      
+          if (finalText) {
+            console.log("Adding caption:", { uid: String(message.uid), text: finalText });
+            setCaptions((prev) => [...prev, { uid: String(message.uid), text: finalText }]);
+          }
+        } catch (err) {
+          console.error("❌ Failed to decode protobuf stream message:", err);
+          if (err instanceof Error) {
+            console.error("Error details:", {
+              name: err.name,
+              message: err.message,
+              stack: err.stack
+            });
+          }
+        }
+      });
+
+      setClient(agoraClient);
+      setReady(true);
+    };
+
+    init();
+
+    // Cleanup function
     return () => {
-      rtcClient.leave();
+      if (client) {
+        client.removeAllListeners();
+      }
     };
   }, []);
 
-  // Handle user published events
-  const handleUserPublished = useCallback(async (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
+  // Join channel function
+  const join = async (channel: string, uid: string) => {
     if (!client) return;
-    await client.subscribe(user, mediaType);
-    
-    if (mediaType === 'video') {
-      setRemoteUsers(prev => [...prev.filter(u => u.uid !== user.uid), user]);
-    }
-    if (mediaType === 'audio') {
-      user.audioTrack?.play();
-    }
-  }, [client]);
-
-  // Handle user unpublished events
-  const handleUserUnpublished = useCallback((user: IAgoraRTCRemoteUser) => {
-    setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid));
-  }, []);
-
-  // Set up event listeners
-  useEffect(() => {
-    if (!client) return;
-
-    client.on('user-published', handleUserPublished);
-    client.on('user-unpublished', handleUserUnpublished);
-    client.on('user-left', handleUserUnpublished);
-
-    return () => {
-      client.off('user-published', handleUserPublished);
-      client.off('user-unpublished', handleUserUnpublished);
-      client.off('user-left', handleUserUnpublished);
-    };
-  }, [client, handleUserPublished, handleUserUnpublished]);
-
-  // Join channel and create local tracks
-  const join = useCallback(async () => {
-    if (!client || !appId || !channel) {
-      setError('Missing required parameters');
-      return;
-    }
 
     try {
-      await client.join(appId, channel, null, uid);
+      // Get token from server
+      const res = await fetch(`/api/agora/token?channelName=${channel}&uid=${uid}`);
+      const { token } = await res.json();
       
+      if (!token) {
+        throw new Error("Failed to get token");
+      }
+
+      // Join the channel with token
+      const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
+      await client.join(appId, channel, token, uid);
+
+      // Create and publish local tracks
       const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+      await client.publish([audioTrack, videoTrack]);
+
       setLocalAudioTrack(audioTrack);
       setLocalVideoTrack(videoTrack);
-      
-      await client.publish([audioTrack, videoTrack]);
-      setJoined(true);
-    } catch (err: any) {
-      setError(err.message || 'Failed to join channel');
-      console.error('Error joining channel:', err);
+    } catch (error) {
+      console.error("Error joining channel:", error);
+      throw error;
     }
-  }, [client, appId, channel, uid]);
+  };
 
-  // Leave channel and cleanup
-  const leave = useCallback(async () => {
-    if (localAudioTrack) {
-      localAudioTrack.close();
-      setLocalAudioTrack(null);
-    }
-    if (localVideoTrack) {
-      localVideoTrack.close();
-      setLocalVideoTrack(null);
-    }
-    if (client) {
-      await client.leave();
-      setJoined(false);
-      setRemoteUsers([]);
-    }
-  }, [client, localAudioTrack, localVideoTrack]);
+  // Leave channel function
+  const leave = async () => {
+    if (!client) return;
+
+    // Stop and close local tracks
+    localAudioTrack?.stop();
+    localVideoTrack?.stop();
+    localAudioTrack?.close();
+    localVideoTrack?.close();
+
+    // Leave the channel
+    await client.leave();
+
+    // Reset states
+    setLocalAudioTrack(null);
+    setLocalVideoTrack(null);
+    setRemoteUsers([]);
+  };
 
   return {
-    client,
     localAudioTrack,
     localVideoTrack,
     remoteUsers,
-    joined,
-    error,
     join,
-    leave
+    leave,
+    ready,
+    captions,
   };
-}; 
+} 

@@ -1,4 +1,3 @@
-//已暂时停用：Agora Transcription 难以配置，且无法正常显示字幕，现在使用的是 DiscussionClientNew.ts
 "use client";
 
 import { useEffect, useState, useRef } from "react";

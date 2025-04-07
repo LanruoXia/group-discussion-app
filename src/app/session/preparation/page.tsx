@@ -114,6 +114,8 @@ export default function PreparationPage() {
     if (remaining <= 0) {
       broadcastReady(current.id);
     }
+
+    return remaining;
   };
 
   // Function to broadcast ready status and transition to discussion
@@ -138,7 +140,16 @@ export default function PreparationPage() {
   // Effect to initialize session status and set up broadcast listener
   useEffect(() => {
     if (!code) return;
+
+    // Initial fetch
     fetchSessionStatus();
+
+    // Set up periodic sync every 10 seconds
+    const syncInterval = setInterval(async () => {
+      console.log("🔄 Syncing preparation time with server...");
+      const remaining = await fetchSessionStatus();
+      console.log(`⏰ Server time remaining: ${remaining} seconds`);
+    }, 10000); // Sync every 10 seconds
 
     // Set up real-time channel subscription for status updates
     const channel = supabase
@@ -152,9 +163,10 @@ export default function PreparationPage() {
         console.log("🔔 Broadcast status:", status);
       });
 
-    // Cleanup function to unsubscribe from channel
+    // Cleanup function to unsubscribe from channel and clear interval
     return () => {
       channel.unsubscribe();
+      clearInterval(syncInterval);
     };
   }, [code]);
 

@@ -18,50 +18,69 @@ export default function Evaluate() {
     const loadFiles = async () => {
       try {
         // 加载评分标准
-        const rubricResponse = await fetch('/test/rubric.txt');
+        const rubricResponse = await fetch("/test/rubric.txt");
         if (!rubricResponse.ok) {
-          throw new Error('Failed to load rubric file');
+          throw new Error("Failed to load rubric file");
         }
         const rubricText = await rubricResponse.text();
-        const rubricBlob = new Blob([rubricText], { type: 'text/plain' });
-        setRubricFile(new File([rubricBlob], 'rubric.txt', { type: 'text/plain' }));
+        const rubricBlob = new Blob([rubricText], { type: "text/plain" });
+        setRubricFile(
+          new File([rubricBlob], "rubric.txt", { type: "text/plain" })
+        );
 
         // 加载测试主题和创建 prompt 文件
-        const promptResponse = await fetch('/test/prompt1.txt');
+        const promptResponse = await fetch("/test/prompt1.txt");
         if (!promptResponse.ok) {
-          throw new Error('Failed to load prompt file');
+          throw new Error("Failed to load prompt file");
         }
         const promptText = await promptResponse.text();
         // 设置测试主题
         setTestTopic(promptText.trim());
         // 同时用作 prompt 文件
-        const promptBlob = new Blob([promptText], { type: 'text/plain' });
-        setPromptFile(new File([promptBlob], 'prompt1.txt', { type: 'text/plain' }));
+        const promptBlob = new Blob([promptText], { type: "text/plain" });
+        setPromptFile(
+          new File([promptBlob], "prompt1.txt", { type: "text/plain" })
+        );
 
         // 获取最新的转录内容
-        const session_id = sessionStorage.getItem('session_id');
-        const transcriptResponse = await fetch('/api/transcript/latest' + (session_id ? `?session_id=${session_id}` : ''));
-        
+        const session_id = sessionStorage.getItem("session_id");
+        const transcriptResponse = await fetch(
+          "/api/transcript/latest" +
+            (session_id ? `?session_id=${session_id}` : "")
+        );
+
         // 如果响应不是200-299范围内的状态码，但是是404，我们认为是没有找到转录内容
         if (!transcriptResponse.ok && transcriptResponse.status !== 404) {
-          throw new Error('Failed to load transcript');
+          throw new Error("Failed to load transcript");
         }
 
         if (transcriptResponse.ok) {
           const transcriptData = await transcriptResponse.json();
           if (transcriptData && transcriptData.content) {
-            const transcriptBlob = new Blob([transcriptData.content], { type: 'text/plain' });
-            setTranscriptFile(new File([transcriptBlob], 'transcript.txt', { type: 'text/plain' }));
+            const transcriptBlob = new Blob([transcriptData.content], {
+              type: "text/plain",
+            });
+            setTranscriptFile(
+              new File([transcriptBlob], "transcript.txt", {
+                type: "text/plain",
+              })
+            );
           }
         }
 
         // 如果没有找到转录内容，我们可以使用示例转录文件
         if (!transcriptFile) {
-          const sampleTranscriptResponse = await fetch('/test/transcript1.txt');
+          const sampleTranscriptResponse = await fetch("/test/transcript1.txt");
           if (sampleTranscriptResponse.ok) {
             const sampleTranscriptText = await sampleTranscriptResponse.text();
-            const transcriptBlob = new Blob([sampleTranscriptText], { type: 'text/plain' });
-            setTranscriptFile(new File([transcriptBlob], 'transcript1.txt', { type: 'text/plain' }));
+            const transcriptBlob = new Blob([sampleTranscriptText], {
+              type: "text/plain",
+            });
+            setTranscriptFile(
+              new File([transcriptBlob], "transcript1.txt", {
+                type: "text/plain",
+              })
+            );
             setApiStatus("Using sample transcript");
           } else {
             setApiStatus("No transcript found");
@@ -69,15 +88,17 @@ export default function Evaluate() {
         }
 
         // 获取当前用户信息
-        const username = sessionStorage.getItem('username');
+        const username = sessionStorage.getItem("username");
         if (username) {
           setStudentNames([username, "", "", ""]);
         }
 
         setApiStatus("Files loaded successfully");
       } catch (error) {
-        console.error('Error loading files:', error);
-        setApiStatus(error instanceof Error ? error.message : "Error loading files");
+        console.error("Error loading files:", error);
+        setApiStatus(
+          error instanceof Error ? error.message : "Error loading files"
+        );
       }
     };
 
@@ -150,7 +171,7 @@ export default function Evaluate() {
       if (response.ok) {
         setMessage(`✅ Evaluation Completed! ${data.message}`);
         // 跳转到结果页面
-        window.location.href = '/results';
+        window.location.href = "/results";
       } else {
         setMessage(`❌ Error: ${data.error || "Evaluation failed"}`);
       }
