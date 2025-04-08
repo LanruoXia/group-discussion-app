@@ -8,6 +8,8 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useDiscussionAgora } from "../hooks/useDiscussionAgora";
 import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { useMediaRecorder } from "../hooks/useMediaRecorder";
+import { useCountdown } from "../hooks/useCountdown";
+import { CountdownDisplay } from "../components/CountdownDisplay";
 
 // 定义字幕记录的类型
 interface CaptionEntry {
@@ -90,6 +92,8 @@ function DiscussionClientContent() {
   const [transcribing, setTranscribing] = useState(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
+  const [allReady, setAllReady] = useState(false);
+
   // Web Speech API 相关状态
   const [recognition, setRecognition] =
     useState<SpeechRecognitionInstance | null>(null);
@@ -130,6 +134,19 @@ function DiscussionClientContent() {
       }
     }
   );
+
+  // useCountdown hook
+  const [discussionStartTime, setDiscussionStartTime] = useState<string | null>(
+    null
+  );
+
+  const { timeLeft, expired } = useCountdown({
+    startTime: discussionStartTime,
+    durationSeconds: 60,
+    onExpire: () => {
+      console.log("💡 讨论时间结束了，可以跳转或保存 transcript");
+    },
+  });
 
   const [participants, setParticipants] = useState<
     Array<{
@@ -368,6 +385,114 @@ function DiscussionClientContent() {
     fetchParticipants();
   }, [sessionId, supabase]);
 
+  const [hasMarkedReady, setHasMarkedReady] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+
+  const checkStatus = async () => {
+    const { data, error } = await supabase
+      .from("sessions")
+      .select("status, discussion_start_time")
+      .eq("id", sessionId)
+      .single();
+
+    if (error) {
+      console.error("❌ Failed to fetch session status:", error);
+      return;
+    }
+
+    if (data?.status === "discussion" && data.discussion_start_time) {
+      console.log("📦 Session already in discussion mode, setting up timer...");
+      setDiscussionStartTime(data.discussion_start_time);
+      setAllReady(true);
+
+      if (!recording) {
+        await startRecording();
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!sessionId || !uid || !localVideoTrack || hasMarkedReady || !subscribed)
+      return;
+
+    const realUsers = participants.filter((p) => !p.is_ai);
+    const allRealUsers = realUsers.map((p) => p.user_id);
+
+    const currentRemoteRealUsers = remoteUsers
+      .map((u) => String(u.uid)) // 🔁 转换为 string
+      .filter((remoteUid) => allRealUsers.includes(remoteUid));
+
+    const hasAllRemote =
+      currentRemoteRealUsers.length + 1 === allRealUsers.length;
+
+    if (hasAllRemote) {
+      console.log("✅ All real users are connected. Sending mark-ready...");
+
+      fetch("/api/session/mark-ready", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sessionId,
+          user_id: uid,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to mark ready");
+          console.log("📬 Mark-ready sent");
+          setHasMarkedReady(true);
+        })
+        .catch((err) => {
+          console.error("❌ Failed to mark ready:", err);
+        });
+    }
+  }, [
+    remoteUsers,
+    localVideoTrack,
+    participants,
+    sessionId,
+    uid,
+    hasMarkedReady,
+    subscribed,
+  ]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const channel = supabase.channel(`session_status_${sessionId}`);
+
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        console.log("✅ Subscribed to session status channel");
+        // ✅ 订阅完成后才允许 mark-ready
+        setSubscribed(true);
+
+        // ✅ 主动 checkStatus 防漏
+        checkStatus();
+      }
+    });
+
+    channel.on("broadcast", { event: "status" }, async (payload) => {
+      if (payload.payload.status === "ready") {
+        const startTime = payload.payload.discussion_start_time;
+        console.log("🎉 All participants are ready!");
+        console.log("🕒 Discussion started at:", startTime);
+        setDiscussionStartTime(startTime);
+
+        if (!recording) {
+          await startRecording();
+        }
+
+        setAllReady(true);
+      }
+    });
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [sessionId]);
+
   // 确保在页面卸载前停止语音识别
   useEffect(() => {
     return () => {
@@ -409,6 +534,15 @@ function DiscussionClientContent() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Discussion Room</h1>
+          {allReady ? (
+            <div className="mb-4 p-3 bg-green-100 text-green-800 rounded shadow text-center font-medium">
+              ✅ All participants are ready. You may begin speaking.
+            </div>
+          ) : (
+            <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded shadow text-center font-medium">
+              ⏳ Waiting for all participants to be ready...
+            </div>
+          )}
           <div className="flex items-center space-x-2">
             <button
               onClick={handleLeave}
@@ -433,6 +567,7 @@ function DiscussionClientContent() {
             )}
           </div>
         </div>
+        {allReady && <CountdownDisplay timeLeft={timeLeft} />}
 
         {/* Participants list */}
         <div className="mb-6">
@@ -493,6 +628,7 @@ function DiscussionClientContent() {
             {localVideoTrack && (
               <div
                 className="w-full h-full"
+                style={{ willChange: "transform, opacity" }}
                 ref={(el) => {
                   if (el) {
                     localVideoTrack.play(el);
