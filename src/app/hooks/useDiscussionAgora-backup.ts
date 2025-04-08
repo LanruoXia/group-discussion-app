@@ -4,10 +4,20 @@ import AgoraRTC, {
   IAgoraRTCRemoteUser,
   ILocalAudioTrack,
   ILocalVideoTrack,
-  ICameraVideoTrack,
-  IMicrophoneAudioTrack,
 } from "agora-rtc-sdk-ng";
 import protoRoot from "@/protobuf/SttMessage_es6.js";
+
+// Word 类型
+interface Word {
+  text: string;
+  isFinal: boolean;
+}
+
+// 字幕消息类型
+interface TextMessage {
+  uid: string;
+  words: Word[];
+}
 
 export interface UseDiscussionAgoraReturn {
   localAudioTrack: ILocalAudioTrack | null;
@@ -65,15 +75,15 @@ export function useDiscussionAgora(): UseDiscussionAgoraReturn {
           const TextMessage = protoRoot.lookupType("Agora.SpeechToText.Text");
           console.log("Decoding message with TextMessage type");
           
-          const message = TextMessage.decode(buffer);
+          const message = TextMessage.decode(buffer) as TextMessage;
           console.log("Decoded message:", message);
           
           const words = message.words || [];
           console.log("Words array:", words);
           
           const finalText = words
-            .filter((w: any) => w.isFinal)
-            .map((w: any) => w.text)
+            .filter((w: Word) => w.isFinal)
+            .map((w: Word) => w.text)
             .join(" ");
           
           console.log("Final text:", finalText);

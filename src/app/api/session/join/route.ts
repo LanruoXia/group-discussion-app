@@ -61,8 +61,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error("Error joining session:", err.message);
+  } catch (err: unknown) {
+    console.error("Error joining session:", err instanceof Error ? err.message : String(err));
     return NextResponse.json({ error: "Join session failed" }, { status: 500 });
   }
 }

@@ -1,13 +1,14 @@
 //已暂时停用：Agora Transcription 难以配置，且无法正常显示字幕，现在使用的是 DiscussionClientNew.ts
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useDiscussionAgora } from "../hooks/useDiscussionAgora-backup";
 import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 
-export default function DiscussionClient() {
+// 包装组件
+function DiscussionClientContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClientComponentClient();
@@ -21,12 +22,10 @@ export default function DiscussionClient() {
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [transcribing, setTranscribing] = useState(false);
-  const [transcript, setTranscript] = useState("");
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   // Initialize Agora client
   const {
-    localAudioTrack,
     localVideoTrack,
     remoteUsers,
     leave: leaveChannel,
@@ -58,7 +57,6 @@ export default function DiscussionClient() {
       setError("Failed to leave discussion properly");
     }
   };
-  const [resourceId, setResourceId] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [builderToken, setBuilderToken] = useState<string | null>(null);
 
@@ -462,5 +460,23 @@ export default function DiscussionClient() {
         </div>
       )}
     </div>
+  );
+}
+
+// 导出带有 Suspense 的组件
+export default function DiscussionClient() {
+  return (
+    <Suspense
+      fallback={
+        <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <DiscussionClientContent />
+    </Suspense>
   );
 }

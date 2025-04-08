@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../supabase";
 
@@ -30,12 +30,8 @@ type SessionStatus = {
   expires_at: string;
 };
 
-type Profile = {
-  id: string;
-  name: string | null;
-};
-
-export default function WaitingRoomPage() {
+// 包装组件
+function WaitingRoomContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const code = searchParams.get("code");
@@ -515,5 +511,23 @@ export default function WaitingRoomPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 主组件
+export default function WaitingRoomPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin inline-block rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+            <p>Loading waiting room...</p>
+          </div>
+        </div>
+      }
+    >
+      <WaitingRoomContent />
+    </Suspense>
   );
 }

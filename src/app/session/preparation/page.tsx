@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../supabase";
+import Link from "next/link";
 
 // Type definition for session status and related data
 type SessionStatus = {
@@ -22,7 +23,8 @@ type SessionStatus = {
   preparation_start_time: string | null;
 };
 
-export default function PreparationPage() {
+// Wrapped component for useSearchParams
+function PreparationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const code = searchParams.get("code");
@@ -197,9 +199,9 @@ export default function PreparationPage() {
     return (
       <div className="text-center p-8 text-red-600">
         ❌ {error} <br />
-        <a href="/" className="underline">
+        <Link href="/" className="underline">
           Back to Home
-        </a>
+        </Link>
       </div>
     );
   }
@@ -246,5 +248,21 @@ export default function PreparationPage() {
         </>
       )}
     </div>
+  );
+}
+
+// Main component wrapped with Suspense
+export default function PreparationPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="text-center p-8">
+          <div className="animate-spin inline-block rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      }
+    >
+      <PreparationContent />
+    </Suspense>
   );
 }

@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useDiscussionAgora } from "../hooks/useDiscussionAgora";
@@ -15,6 +15,41 @@ interface CaptionEntry {
   text: string;
   timestamp: number;
   uid: string;
+}
+
+// Web Speech API 类型
+interface SpeechRecognitionEvent {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+  readonly NONE: number;
+  readonly SERVICE: number;
+  readonly NETWORK: number;
+  readonly NO_SPEECH: number;
+  readonly NO_MICROPHONE: number;
+  readonly AUDIO_CAPTURE: number;
+  readonly ABORTED: number;
+}
+
+interface SpeechRecognitionError {
+  error: string;
+  message?: string;
+}
+
+interface SpeechRecognitionInstance {
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionError) => void;
+  onend: () => void;
+}
+
+// SpeechRecognition 构造函数接口
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionInstance;
 }
 
 // 精简标点符号函数，只保留英语处理
@@ -38,7 +73,8 @@ function addPunctuation(text: string): string {
   }
 }
 
-export default function DiscussionClient() {
+// 用于使用 useSearchParams 的组件
+function DiscussionClientContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClientComponentClient();
@@ -52,17 +88,23 @@ export default function DiscussionClient() {
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [transcribing, setTranscribing] = useState(false);
-  const [transcript, setTranscript] = useState("");
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   // Web Speech API 相关状态
-  const [recognition, setRecognition] = useState<any>(null);
+  const [recognition, setRecognition] =
+    useState<SpeechRecognitionInstance | null>(null);
   const [captions, setCaptions] = useState<CaptionEntry[]>([]);
-  const [segments, setSegments] = useState<any[]>([]);
+  const [segments, setSegments] = useState<
+    {
+      start: number;
+      end: number;
+      text: string;
+      speaker: string;
+    }[]
+  >([]);
 
   // Initialize Agora client
   const {
-    localAudioTrack,
     localVideoTrack,
     remoteUsers,
     leave: leaveChannel,
@@ -136,8 +178,16 @@ export default function DiscussionClient() {
 
       // 创建语音识别实例
       const SpeechRecognition =
-        (window as any).SpeechRecognition ||
-        (window as any).webkitSpeechRecognition;
+        (
+          window as unknown as {
+            SpeechRecognition: SpeechRecognitionConstructor;
+          }
+        ).SpeechRecognition ||
+        (
+          window as unknown as {
+            webkitSpeechRecognition: SpeechRecognitionConstructor;
+          }
+        ).webkitSpeechRecognition;
       const recognitionInstance = new SpeechRecognition();
 
       // 配置语音识别
@@ -146,7 +196,7 @@ export default function DiscussionClient() {
       recognitionInstance.lang = "en-US"; // 固定为英语
 
       // 处理识别结果
-      recognitionInstance.onresult = (event: any) => {
+      recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
         const last = event.results.length - 1;
         const result = event.results[last];
 
@@ -185,7 +235,7 @@ export default function DiscussionClient() {
       };
 
       // 处理错误
-      recognitionInstance.onerror = (event: any) => {
+      recognitionInstance.onerror = (event: SpeechRecognitionError) => {
         console.error("Speech recognition error:", event.error);
         if (event.error === "no-speech") {
           console.log("No speech detected");
@@ -579,5 +629,23 @@ export default function DiscussionClient() {
         )}
       </div>
     </div>
+  );
+}
+
+// 导出带有 Suspense 的组件
+export default function DiscussionClient() {
+  return (
+    <Suspense
+      fallback={
+        <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <DiscussionClientContent />
+    </Suspense>
   );
 }

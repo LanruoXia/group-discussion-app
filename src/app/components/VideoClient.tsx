@@ -3,9 +3,10 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAgora } from "../hooks/useAgora";
 import RemoteVideoPlayer from "../components/agora/RemoteVideoPlayer";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 
-export default function VideoClient() {
+// 包装组件
+function VideoClientContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const channel = searchParams.get("channel") || "default-room";
@@ -218,5 +219,21 @@ export default function VideoClient() {
         </div>
       )}
     </div>
+  );
+}
+
+// 主组件
+export default function VideoClient() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-6 text-center">
+          <div className="animate-spin inline-block rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+          <p>Loading video client...</p>
+        </div>
+      }
+    >
+      <VideoClientContent />
+    </Suspense>
   );
 }

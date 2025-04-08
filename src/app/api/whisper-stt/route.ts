@@ -4,6 +4,15 @@ import { NextRequest, NextResponse } from "next/server";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions";
 
+interface WhisperSegment {
+  start: number;
+  end: number;
+  text: string;
+  confidence?: number;
+  id?: number;
+  tokens?: number[];
+}
+
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const file = formData.get("audio") as Blob | null;
@@ -42,7 +51,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Add speaker info to each segment
-    const transcript = result.segments.map((seg: any) => ({
+    const transcript = result.segments.map((seg: WhisperSegment) => ({
       start: seg.start,
       end: seg.end,
       text: seg.text,

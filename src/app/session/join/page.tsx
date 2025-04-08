@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../supabase";
 
-export default function JoinPage() {
+// 包装组件
+function JoinPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const codeFromURL = searchParams.get("code") || "";
@@ -186,5 +187,23 @@ export default function JoinPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+// 主组件
+export default function JoinPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin inline-block rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+            <p>Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <JoinPageContent />
+    </Suspense>
   );
 }

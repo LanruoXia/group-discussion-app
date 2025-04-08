@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-export default function DiscussionPage() {
+// 包装组件，用于使用 useSearchParams
+function DiscussionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const code = searchParams.get("code");
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClientComponentClient();
 
@@ -116,8 +116,6 @@ export default function DiscussionPage() {
       } catch (err) {
         console.error("Error checking session:", err);
         setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -147,5 +145,23 @@ export default function DiscussionPage() {
         <p className="text-gray-600">Redirecting to discussion room...</p>
       </div>
     </div>
+  );
+}
+
+// 主组件用 Suspense 包裹
+export default function DiscussionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <DiscussionContent />
+    </Suspense>
   );
 }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { customAlphabet } from "nanoid";
-import { v4 as uuidv4 } from "uuid";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -88,7 +87,7 @@ export async function POST(req: Request) {
       session_id: sessionId, 
       session_code: sessionCode 
     }, { status: 201 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error creating session:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

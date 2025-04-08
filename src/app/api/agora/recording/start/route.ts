@@ -1,7 +1,7 @@
 // src/app/api/agora/recording/start/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
+// import { headers } from "next/headers";
 
 const customerId = process.env.AGORA_CUSTOMER_ID!;
 const customerSecret = process.env.AGORA_CUSTOMER_SECRET!;

@@ -69,8 +69,8 @@ export async function GET(req: Request) {
       remaining,
       participants,
     });
-  } catch (err: any) {
-    console.error("Error fetching session status:", err.message);
+  } catch (err: unknown) {
+    console.error("Error fetching session status:", err instanceof Error ? err.message : String(err));
     return NextResponse.json({ error: "Session status fetch failed" }, { status: 500 });
   }
 }
