@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface UseCountdownOptions {
   startTime: string | null;
@@ -14,7 +14,8 @@ export function useCountdown({
   syncIntervalSeconds = 10,
 }: UseCountdownOptions) {
   const [timeLeft, setTimeLeft] = useState<number>(durationSeconds);
-  const [expired, setExpired] = useState<boolean>(false);
+  const expiredRef = useRef(false); // ✅ 替代 useState
+  const [expired, setExpired] = useState<boolean>(false); // 可选：暴露给外部使用
 
   useEffect(() => {
     if (!startTime) return;
@@ -27,36 +28,35 @@ export function useCountdown({
 
       setTimeLeft(remaining);
 
-      if (remaining === 0 && !expired) {
-        setExpired(true);
+      if (remaining === 0 && !expiredRef.current) {
+        expiredRef.current = true;
+        setExpired(true); // 更新外部状态
         if (onExpire) onExpire();
       }
     };
 
-    // Initial sync
-    updateRemaining();
+    updateRemaining(); // 初始同步一次
 
-    // 1s ticking interval
     const tickTimer = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(tickTimer);
+        const next = prev - 1;
+        if (next <= 0 && !expiredRef.current) {
+          expiredRef.current = true;
           setExpired(true);
           if (onExpire) onExpire();
-          return 0;
+          clearInterval(tickTimer);
         }
-        return prev - 1;
+        return Math.max(next, 0);
       });
     }, 1000);
 
-    // 10s server drift correction
     const syncTimer = setInterval(updateRemaining, syncIntervalSeconds * 1000);
 
     return () => {
       clearInterval(tickTimer);
       clearInterval(syncTimer);
     };
-  }, [startTime, durationSeconds, onExpire, expired, syncIntervalSeconds]);
+  }, [startTime, durationSeconds, onExpire, syncIntervalSeconds]);
 
   return { timeLeft, expired };
 }

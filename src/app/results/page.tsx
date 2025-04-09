@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../supabase";
 
 type Evaluation = {
@@ -13,67 +13,51 @@ type Evaluation = {
   vocabulary_patterns_comment: string;
   ideas_organization_score: number;
   ideas_organization_comment: string;
-  speaking_time: number;
-  word_count: number;
-  session_id: string;
-};
-
-type Transcript = {
-  content: string;
-  created_at: string;
+  speaking_time?: number;
+  word_count?: number;
 };
 
 type Session = {
-  session_id: string;
+  id: string;
   session_code: string;
   test_topic: string;
   created_at: string;
 };
 
-export default function ResultsPage() {
+type Transcript = {
+  content: string;
+};
+
+function ResultsContent() {
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [transcript, setTranscript] = useState<Transcript | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const userId = searchParams.get("user_id");
+  const sessionId = searchParams.get("session_id");
 
   useEffect(() => {
-    const fetchLatestEvaluation = async () => {
-      const userId = sessionStorage.getItem("user_id");
-      const storedUsername = sessionStorage.getItem("username");
-
-      if (!userId) {
-        setError("⚠️ Please log in to view your results.");
+    const fetchEvaluation = async () => {
+      if (!userId || !sessionId) {
+        setError("❌ Missing session or user information");
         setLoading(false);
         return;
       }
 
+      const storedUsername = sessionStorage.getItem("username");
       setUsername(storedUsername ?? "Unknown");
 
-      // Step 1: 查询该用户参与的最新一条 session
-      const { data: participantRow, error: participantError } = await supabase
-        .from("session_participants")
-        .select("session_id")
-        .eq("user_id", userId)
-        .order("joined_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (participantError || !participantRow) {
-        setError("⚠️ You have not joined any sessions.");
-        setLoading(false);
-        return;
-      }
-
-      const sessionId = participantRow.session_id;
-
-      // Step 2: 获取 session 信息
+      // 查询 session 信息
       const { data: sessionData, error: sessionError } = await supabase
         .from("sessions")
         .select("*")
-        .eq("session_id", sessionId)
+        .eq("id", sessionId)
         .single();
 
       if (sessionError || !sessionData) {
@@ -84,7 +68,7 @@ export default function ResultsPage() {
 
       setSession(sessionData);
 
-      // Step 3: 获取该 session 的 evaluation 数据
+      // 查询 evaluation 数据
       const { data: evaluationData, error: evalError } = await supabase
         .from("evaluation")
         .select("*")
@@ -100,8 +84,10 @@ export default function ResultsPage() {
 
       setEvaluation(evaluationData);
 
-      // 获取转录内容
-      const transcriptRes = await fetch(`/api/transcript/latest?session_id=${sessionId}`);
+      // 获取 transcript 内容
+      const transcriptRes = await fetch(
+        `/api/transcript/latest?session_id=${sessionId}`
+      );
       const transcriptData = await transcriptRes.json();
 
       if (transcriptRes.ok && transcriptData) {
@@ -111,31 +97,23 @@ export default function ResultsPage() {
       setLoading(false);
     };
 
-    fetchLatestEvaluation();
-  }, []);
+    fetchEvaluation();
+  }, [userId, sessionId]);
 
   if (loading) {
-    return <div className="text-center">Loading your result...</div>;
+    return <div className="text-center p-8">Loading your result...</div>;
   }
 
-  if (error) {
+  if (error || !evaluation || !session) {
     return (
       <div className="text-center text-red-500 mt-10">
-        {error} <br />
+        {error || "Failed to load evaluation data"} <br />
         <button
-          onClick={() => router.push("/auth")}
+          onClick={() => router.push("/")}
           className="mt-4 px-4 py-2 border border-red-500 text-red-500 rounded hover:bg-red-100"
         >
-          Login
+          Back to Home
         </button>
-      </div>
-    );
-  }
-
-  if (!evaluation || !session) {
-    return (
-      <div className="text-center text-red-500 mt-10">
-        No evaluation result found.
       </div>
     );
   }
@@ -152,7 +130,6 @@ export default function ResultsPage() {
         Your Evaluation
       </h1>
 
-      {/* Summary Info */}
       <div className="max-w-4xl w-full bg-white shadow p-8 rounded mb-10">
         <h2 className="text-xl font-semibold mb-2">🧾 Summary</h2>
         <p>
@@ -178,7 +155,6 @@ export default function ResultsPage() {
         </p>
       </div>
 
-      {/* Transcript Section */}
       {transcript && (
         <div className="max-w-4xl w-full bg-white shadow p-8 rounded mb-10">
           <h2 className="text-xl font-semibold mb-4">📝 Session Transcript</h2>
@@ -188,7 +164,6 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {/* Detail Sections */}
       <div className="grid grid-cols-2 gap-6 max-w-4xl w-full">
         <EvaluationCard
           title="Pronunciation & Delivery"
@@ -212,6 +187,27 @@ export default function ResultsPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold mb-4 text-blue-600">
+              Loading Results...
+            </h1>
+            <div className="mt-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-opacity-50 mx-auto"></div>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ResultsContent />
+    </Suspense>
   );
 }
 

@@ -1,3 +1,4 @@
+// src/app/supabase.tsx
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { Database } from "./database.types";
 

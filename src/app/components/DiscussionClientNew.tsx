@@ -91,6 +91,7 @@ function DiscussionClientContent() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [transcribing, setTranscribing] = useState(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const hasStartedDiscussionRef = useRef(false);
 
   const [allReady, setAllReady] = useState(false);
 
@@ -117,7 +118,7 @@ function DiscussionClientContent() {
   } = useDiscussionAgora();
 
   const { startRecording, stopRecording, recording } = useMediaRecorder(
-    async (blob) => {
+    async (blob, startTime) => {
       const formData = new FormData();
       formData.append("audio", blob, "audio.webm");
       formData.append("speaker", displayName || "Unknown");
@@ -132,6 +133,39 @@ function DiscussionClientContent() {
         setSegments(result.transcript); // ✅ 保存 transcript
         console.log("📝 Transcribed:", result.transcript);
       }
+      if (!startTime) {
+        console.warn("⚠️ userStartAt is missing, skipping transcript submit");
+        return;
+      }
+      console.log("🛰️ Submitting transcript:", {
+        session_id: sessionId,
+        user_id: uid,
+        transcript: result.transcript,
+        startAt: new Date(startTime).toISOString(),
+      });
+      const submitRes = await fetch("/api/whisper-transcript/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          user_id: uid,
+          transcript: result.transcript, // transcript 是带 start/end/speaker 的结构
+          startAt: new Date(startTime).toISOString(), // 用来对齐时间线
+        }),
+      });
+
+      if (!submitRes.ok) {
+        const errorText = await submitRes.text();
+        console.error(
+          "❌ Failed to submit transcript:",
+          submitRes.status,
+          errorText
+        );
+      } else {
+        console.log("✅ Transcript submitted to Supabase");
+      }
     }
   );
 
@@ -140,11 +174,18 @@ function DiscussionClientContent() {
     null
   );
 
-  const { timeLeft, expired } = useCountdown({
+  const { timeLeft } = useCountdown({
     startTime: discussionStartTime,
-    durationSeconds: 60,
-    onExpire: () => {
-      console.log("💡 讨论时间结束了，可以跳转或保存 transcript");
+    durationSeconds: 30,
+    onExpire: async () => {
+      console.log("⏰ 倒计时结束，自动停止录音并提交 transcript");
+      if (recording) {
+        await stopRecording(); // 自动触发音频停止
+        hasStartedDiscussionRef.current = true;
+        router.push(
+          `/evaluation-waiting?session_id=${sessionId}&user_id=${uid}`
+        );
+      }
     },
   });
 
@@ -389,6 +430,7 @@ function DiscussionClientContent() {
   const [subscribed, setSubscribed] = useState(false);
 
   const checkStatus = async () => {
+    if (hasStartedDiscussionRef.current) return;
     const { data, error } = await supabase
       .from("sessions")
       .select("status, discussion_start_time")
@@ -407,11 +449,13 @@ function DiscussionClientContent() {
 
       if (!recording) {
         await startRecording();
+        hasStartedDiscussionRef.current = true;
       }
     }
   };
 
   useEffect(() => {
+    if (hasStartedDiscussionRef.current) return;
     if (!sessionId || !uid || !localVideoTrack || hasMarkedReady || !subscribed)
       return;
 
@@ -482,6 +526,7 @@ function DiscussionClientContent() {
 
         if (!recording) {
           await startRecording();
+          hasStartedDiscussionRef.current = true;
         }
 
         setAllReady(true);

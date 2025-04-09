@@ -9,6 +9,8 @@ const Home = () => {
   const [channel, setChannel] = useState("");
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const [sessionId, setSessionId] = useState("");
+  const [userId, setUserId] = useState("");
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -106,6 +108,34 @@ const Home = () => {
           className="w-full bg-blue-700 text-white py-2 rounded hover:bg-blue-800"
         >
           Join Group Session
+        </button>
+      </div>
+      {/* Add this below the session buttons */}
+      <div className="mt-10 space-y-2 w-full max-w-xs">
+        <h2 className="text-lg font-semibold">Check Evaluation</h2>
+        <input
+          type="text"
+          placeholder="Session ID"
+          className="w-full px-4 py-2 border rounded"
+          onChange={(e) => setSessionId(e.target.value)}
+        />
+        <input
+          type="text"
+          placeholder="User ID"
+          className="w-full px-4 py-2 border rounded"
+          onChange={(e) => setUserId(e.target.value)}
+        />
+        <button
+          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
+          onClick={() => {
+            if (!sessionId || !userId) {
+              alert("Please enter both session ID and user ID");
+              return;
+            }
+            router.push(`/results?session_id=${sessionId}&user_id=${userId}`);
+          }}
+        >
+          Check Result
         </button>
       </div>
     </div>

@@ -1,6 +1,6 @@
+//src/app/api/evaluate/route.ts
 import OpenAI from "openai";
 import { supabase } from "../../supabase";
-import { v4 as uuidv4 } from "uuid";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -9,38 +9,120 @@ const openai = new OpenAI({
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
-    const rubricFile = formData.get("rubric");
-    const promptFile = formData.get("prompt");
-    const transcriptFile = formData.get("transcript");
-    const testTopic = formData.get("test_topic") as string;
-    // const studentIDs: string[] = JSON.parse(formData.get("student_ids") as string);
-    const studentIDs = JSON.parse(formData.get("student_ids") as string);
+    // const formData = await req.formData();
+    // const rubricFile = formData.get("rubric");
+    // const promptFile = formData.get("prompt");
+    // const transcriptFile = formData.get("transcript");
+    // const testTopic = formData.get("test_topic") as string;
+    // // const studentIDs: string[] = JSON.parse(formData.get("student_ids") as string);
+    // const studentIDs = JSON.parse(formData.get("student_ids") as string);
 
-    if (
-      !(rubricFile instanceof File) ||
-      !(promptFile instanceof File) ||
-      !(transcriptFile instanceof File)
-    ) {
-      return new Response(JSON.stringify({ error: "Invalid file upload." }), { status: 400 });
+    // if (
+    //   !(rubricFile instanceof File) ||
+    //   !(promptFile instanceof File) ||
+    //   !(transcriptFile instanceof File)
+    // ) {
+    //   return new Response(JSON.stringify({ error: "Invalid file upload." }), { status: 400 });
+    // }
+
+    // const rubric = await rubricFile.text();
+    // const testPrompt = await promptFile.text();
+    // const candidateResponse = await transcriptFile.text();
+
+    // const sessionId = uuidv4();
+    // const { error: sessionError } = await supabase.from("session").insert([
+    //   {
+    //     session_id: sessionId,
+    //     test_topic: testTopic,
+    //     participants: studentIDs,
+    //   },
+    // ]);
+
+    // if (sessionError) {
+    //   return new Response(JSON.stringify({ error: "Failed to create session" }), { status: 500 });
+    // }
+
+    const { session_id } = await req.json();
+
+    // 1. 获取 session 信息
+    const { data: sessionData, error: sessionError } = await supabase
+      .from("sessions")
+      .select("test_topic")
+      .eq("id", session_id)
+      .single();
+
+    if (sessionError || !sessionData) {
+      return new Response(
+        JSON.stringify({ error: "Session not found." }),
+        { status: 404 }
+      );
     }
 
-    const rubric = await rubricFile.text();
-    const testPrompt = await promptFile.text();
-    const candidateResponse = await transcriptFile.text();
+    const testTopic = sessionData.test_topic;
 
-    const sessionId = uuidv4();
-    const { error: sessionError } = await supabase.from("session").insert([
-      {
-        session_id: sessionId,
-        test_topic: testTopic,
-        participants: studentIDs,
-      },
-    ]);
+    // 2. 获取 prompt 内容
+    const { data: testPrompt, error: promptError } = await supabase
+      .from("prompt")
+      .select("content")
+      .eq("test_topic", testTopic)
+      .single();
 
-    if (sessionError) {
-      return new Response(JSON.stringify({ error: "Failed to create session" }), { status: 500 });
+    if (promptError || !testPrompt) {
+      return new Response(
+        JSON.stringify({ error: "Prompt not found for this topic." }),
+        { status: 404 }
+      );
     }
+
+    // 3. 获取 rubric 内容
+    const { data: rubric, error: rubricError } = await supabase
+      .from("rubric")
+      .select("content")
+      .limit(1)
+      .single();
+
+    if (rubricError || !rubric) {
+      return new Response(
+        JSON.stringify({ error: "Rubric not found." }),
+        { status: 404 }
+      );
+    }
+
+    // 4. 获取合并后的 transcript 内容
+    const { data: candidateResponse, error: transcriptError } = await supabase
+      .from("merged_transcripts")
+      .select("merged_transcript")
+      .eq("session_id", session_id);
+
+    if (transcriptError || !candidateResponse) {
+      return new Response(
+        JSON.stringify({ error: "Transcripts not found." }),
+        { status: 404 }
+      );
+    }
+
+    // 5. 获取所有真实参与者
+    // 获取所有参与者（包括 AI），并根据加入顺序排序
+    const { data: participants, error: participantError } = await supabase
+      .from("participants")
+      .select("user_id")
+      .eq("session_id", session_id)
+      .order("created_at", { ascending: true });
+
+    if (participantError || !participants || participants.length < 4) {
+      return new Response(
+        JSON.stringify({ error: "Not enough participants (including AI)." }),
+        { status: 400 }
+      );
+    }
+
+    // 分配 A-D 映射
+    const participantToUserId = {
+      A: participants[0]?.user_id ?? "unknown-A",
+      B: participants[1]?.user_id ?? "unknown-B",
+      C: participants[2]?.user_id ?? "unknown-C",
+      D: participants[3]?.user_id ?? "unknown-D",
+    };
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -124,25 +206,14 @@ export async function POST(req: Request) {
       });
     }
 
-    const participants = evaluationResult.participants;
-    if (!participants) {
-      return new Response(
-        JSON.stringify({ error: "Missing participants data in response." }),
-        { status: 500 }
-      );
-    }
-
-    const participantToUserId: Record<string, string> = {
-      A: studentIDs[0],
-      B: studentIDs[1],
-      C: studentIDs[2],
-      D: studentIDs[3],
-    };
-
-    const insertData = Object.entries(participants).map(
-      ([participant, scores]: [string, ParticipantScores]) => ({
-      session_id: sessionId,
-      user_id: participantToUserId[participant],
+    const insertData = Object.entries(evaluationResult.participants)
+    .filter(([participant]) => {
+      const userId = participantToUserId[participant as keyof typeof participantToUserId];
+      return !userId.startsWith("unknown");
+    })
+    .map(([participant, scores]: [string, ParticipantScores]) => ({
+      session_id: session_id,
+      user_id: participantToUserId[participant as keyof typeof participantToUserId],
       participant,
       pronunciation_delivery_score: scores["Pronunciation & Delivery"].score,
       pronunciation_delivery_comment: scores["Pronunciation & Delivery"].comment,
@@ -153,7 +224,6 @@ export async function POST(req: Request) {
       ideas_organization_score: scores["Ideas & Organization"].score,
       ideas_organization_comment: scores["Ideas & Organization"].comment,
     }));
-
     await supabase.from("evaluation").insert(insertData);
 
     return new Response(
