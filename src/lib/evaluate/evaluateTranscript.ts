@@ -24,18 +24,24 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ✅ 封装为可重用函数并导出
 export async function evaluateTranscript(session_id: string): Promise<void> {
+  console.log("📊 [evaluateTranscript] Start evaluation for session:", session_id);
+
   // 1. 获取 session 信息
+  console.log("🔍 [1] Fetching session info:", session_id);
   const { data: sessionData, error: sessionError } = await supabase
     .from("sessions")
     .select("test_topic")
     .eq("id", session_id)
     .single();
 
-  if (sessionError || !sessionData) throw new Error("Session not found");
+  if (sessionError || !sessionData) {
+    console.error("❌ Session not found:", sessionError);
+    throw new Error("Session not found");
+  }
 
   const testTopic = sessionData.test_topic;
+  console.log("🧠 [2] Fetching prompt and rubric for:", testTopic);
 
   // 2. 获取 prompt 内容
   const { data: testPrompt, error: promptError } = await supabase
@@ -65,6 +71,7 @@ export async function evaluateTranscript(session_id: string): Promise<void> {
   if (transcriptError || !merged) throw new Error("Merged transcript not found");
 
   const candidateResponse = merged.merged_transcript;
+  console.log("📜 [3] Fetched merged transcript length:", candidateResponse.length);
 
   // 5. 获取参与者
   const { data: participants, error: participantError } = await supabase
@@ -83,7 +90,10 @@ export async function evaluateTranscript(session_id: string): Promise<void> {
     D: participants[3]?.user_id ?? "unknown-D",
   };
 
+  console.log("👥 [4] Mapped participants:", participantToUserId);
+
   // 6. 调用 OpenAI
+  console.log("🤖 [5] Calling OpenAI with full prompt...");
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     response_format: { type: "json_object" },
@@ -135,6 +145,8 @@ export async function evaluateTranscript(session_id: string): Promise<void> {
   const content = response.choices?.[0]?.message?.content ?? "";
   if (!content) throw new Error("Empty response from OpenAI");
 
+  console.log("✅ [6] Received OpenAI response");
+
   let evaluationResult;
   try {
     evaluationResult = JSON.parse(content);
@@ -142,6 +154,9 @@ export async function evaluateTranscript(session_id: string): Promise<void> {
     throw new Error("Failed to parse JSON");
   }
 
+  console.log("📊 [7] Parsed evaluation result:", evaluationResult);
+
+  console.log("📥 [8] Inserting evaluation to DB...");
   const insertData = Object.entries(evaluationResult.participants)
     .filter(([key]) => !participantToUserId[key as keyof typeof participantToUserId].startsWith("unknown"))
     .map(([participant, scores]) => ({
@@ -158,10 +173,16 @@ export async function evaluateTranscript(session_id: string): Promise<void> {
       ideas_organization_comment: (scores as ParticipantScores)["Ideas & Organization"].comment,
     }));
 
-  await supabase.from("evaluation").insert(insertData);
+  const { error: insertError } = await supabase.from("evaluation").insert(insertData);
+
+  if (insertError) {
+    console.error("❌ Failed to insert evaluation:", insertError);
+    throw new Error("Insert failed");
+  }
+
+  console.log("🎉 [9] Evaluation complete for session:", session_id);
 }
 
-// ✅ 你可以保留这个 POST handler，如果你仍想从外部 API 调用
 export async function POST(req: Request) {
   const { session_id } = await req.json();
   await evaluateTranscript(session_id);
