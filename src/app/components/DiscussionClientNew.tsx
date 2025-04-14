@@ -173,6 +173,7 @@ function DiscussionClientContent() {
   const [discussionStartTime, setDiscussionStartTime] = useState<string | null>(
     null
   );
+  const hasStoppedRecordingRef = useRef(false);
 
   const { timeLeft } = useCountdown({
     startTime: discussionStartTime,
@@ -182,6 +183,33 @@ function DiscussionClientContent() {
       if (recording) {
         await stopRecording(); // 自动触发音频停止
         hasStartedDiscussionRef.current = true;
+
+        if (!hasStoppedRecordingRef.current && channel && uid) {
+          hasStoppedRecordingRef.current = true;
+          try {
+            const res = await fetch("/api/agora/stop-recording", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                session_id: sessionId,
+                cname: channel,
+                uid: "123",
+                mode: "mix", // 或者你的实际模式
+              }),
+            });
+
+            if (!res.ok) {
+              const errorText = await res.text();
+              console.error("❌ Failed to stop cloud recording:", errorText);
+            } else {
+              console.log("🛑 Cloud recording stopped successfully");
+            }
+          } catch (error) {
+            console.error("❌ Error calling stop-recording API:", error);
+          }
+        }
         router.push(
           `/evaluation-waiting?session_id=${sessionId}&user_id=${uid}`
         );
