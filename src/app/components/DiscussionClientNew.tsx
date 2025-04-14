@@ -509,10 +509,10 @@ function DiscussionClientContent() {
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {
         console.log("✅ Subscribed to session status channel");
-        // ✅ 订阅完成后才允许 mark-ready
+        // 订阅完成后才允许 mark-ready
         setSubscribed(true);
 
-        // ✅ 主动 checkStatus 防漏
+        // 主动 checkStatus 防漏
         checkStatus();
       }
     });
