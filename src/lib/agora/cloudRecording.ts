@@ -155,7 +155,6 @@ export async function startIndividualRecording(resourceId: string, session_code:
               maxIdleTime: 600, // 10 minutes
               streamTypes: 2, // 2 = audio & video
               streamMode: "standard",
-              audioProfile: 1,
               channelType: 1, // 1 = live broadcast mode (required for individual mode)
               videoStreamType: 0,
               subscribeVideoUids: ["#allstream#"], 

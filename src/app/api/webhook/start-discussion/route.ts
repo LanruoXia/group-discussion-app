@@ -58,14 +58,30 @@ export async function POST(req: NextRequest) {
   
       const session_code = sessionData.session_code;
       console.log("🎯 Session code retrieved:", session_code); 
+
+      // 3. Check if session is already in discussion mode
+      const { data: sessionCheck, error: checkError } = await supabase
+        .from("sessions")
+        .select("status")
+        .eq("id", session_id)
+        .maybeSingle();
+      if (checkError) {
+        console.error("❌ Error checking session status:", checkError);
+        return NextResponse.json({ error: "Failed to check session status" }, { status: 500 });
+      }
+
+      if (sessionCheck?.status === "discussion") {
+        console.log("⏩ Session already started. Skipping duplicate recording trigger.");
+        return NextResponse.json({ message: "Session already in discussion mode." });
+      }
   
-      // 3. Acquire Cloud Recording resource ID
+      // 4. Acquire Cloud Recording resource ID
       const compositeResourceId  = await acquireResourceId(session_code, "123");
       const individualResourceId = await acquireResourceId(session_code, "456");
       console.log("🆔 Acquired Composite Recording resourceId:", compositeResourceId );
       console.log("🆔 Acquired Individual Recording resourceId:", individualResourceId );
   
-      // 4. Update session status
+      // 5. Update session status
       const discussionStartTime = new Date().toISOString();
       const { error: statusError } = await supabase
         .from("sessions")
@@ -79,7 +95,7 @@ export async function POST(req: NextRequest) {
   
       console.log("🕒 Session status updated to 'discussion' at", discussionStartTime); 
   
-      // 5. Start Cloud Recording
+      // 6. Start Cloud Recording
       const compositeInfo = await startCompositeRecording(compositeResourceId, session_code, "123");
       const individualInfo = await startIndividualRecording(individualResourceId, session_code, "456");
       console.log("📹 Started Cloud Recording:", compositeInfo); 
@@ -97,7 +113,7 @@ export async function POST(req: NextRequest) {
   
       console.log("💾 Recording info saved to Supabase"); 
   
-      // 6. Broadcast to session_status channel
+      // 7. Broadcast to session_status channel
       const channel = supabase.channel(`session_status_${session_id}`);
       await channel.send({
         type: "broadcast",
