@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
         .from("sessions")
         .update({ status: "discussion", discussion_start_time: discussionStartTime })
         .eq("id", session_id)
-        .eq("status", "preparation") // 加锁条件
+        .in("status", ["waiting", "ready", "preparation"])
         .select()
         .maybeSingle();
 
