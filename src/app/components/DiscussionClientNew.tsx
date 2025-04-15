@@ -173,7 +173,6 @@ function DiscussionClientContent() {
   const [discussionStartTime, setDiscussionStartTime] = useState<string | null>(
     null
   );
-  const hasStoppedRecordingRef = useRef(false);
 
   const { timeLeft } = useCountdown({
     startTime: discussionStartTime,
@@ -184,32 +183,30 @@ function DiscussionClientContent() {
         await stopRecording(); // 自动触发音频停止
         hasStartedDiscussionRef.current = true;
 
-        if (!hasStoppedRecordingRef.current && channel && uid) {
-          hasStoppedRecordingRef.current = true;
-          try {
-            const res = await fetch("/api/agora/stop-recording", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                session_id: sessionId,
-                cname: channel,
-                uid: "123",
-                mode: "mix", // 或者你的实际模式
-              }),
-            });
+        try {
+          const res = await fetch("/api/agora/stop-recording", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              session_id: sessionId,
+              cname: channel,
+              uid: "123",
+              mode: "mix", // 或者你的实际模式
+            }),
+          });
 
-            if (!res.ok) {
-              const errorText = await res.text();
-              console.error("❌ Failed to stop cloud recording:", errorText);
-            } else {
-              console.log("🛑 Cloud recording stopped successfully");
-            }
-          } catch (error) {
-            console.error("❌ Error calling stop-recording API:", error);
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error("❌ Failed to stop cloud recording:", errorText);
+          } else {
+            console.log("🛑 Cloud recording stopped successfully");
           }
+        } catch (error) {
+          console.error("❌ Error calling stop-recording API:", error);
         }
+        await leaveChannel();
         router.push(
           `/evaluation-waiting?session_id=${sessionId}&user_id=${uid}`
         );
@@ -701,9 +698,8 @@ function DiscussionClientContent() {
             {localVideoTrack && (
               <div
                 className="w-full h-full"
-                style={{ willChange: "transform, opacity" }}
                 ref={(el) => {
-                  if (el) {
+                  if (el && !el.hasChildNodes()) {
                     localVideoTrack.play(el);
                   }
                 }}
@@ -724,7 +720,7 @@ function DiscussionClientContent() {
                 <div
                   className="w-full h-full"
                   ref={(el) => {
-                    if (el) {
+                    if (el && !el.hasChildNodes()) {
                       console.log(`🎥 Playing video for user: ${user.uid}`);
                       try {
                         user.videoTrack?.play(el);
