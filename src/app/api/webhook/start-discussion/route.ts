@@ -83,14 +83,24 @@ export async function POST(req: NextRequest) {
   
       // 5. Update session status
       const discussionStartTime = new Date().toISOString();
-      const { error: statusError } = await supabase
+
+      // 原子更新并加锁：只有 status 为 preparation 时才更新
+      const { data: updatedSession, error: lockError } = await supabase
         .from("sessions")
         .update({ status: "discussion", discussion_start_time: discussionStartTime })
-        .eq("id", session_id);
-  
-      if (statusError) {
-        console.error("❌ Failed to update session status:", statusError); 
-        return NextResponse.json({ error: "Failed to update session status" }, { status: 500 });
+        .eq("id", session_id)
+        .eq("status", "preparation") // 加锁条件
+        .select()
+        .maybeSingle();
+
+      if (lockError) {
+      console.error("❌ Error updating session with lock:", lockError);
+      return NextResponse.json({ error: "Failed to update session with lock (session status is not preparation)" }, { status: 500 });
+      }
+
+      if (!updatedSession) {
+      console.log("⏩ Session already started. Skipping duplicate recording trigger.");
+      return NextResponse.json({ message: "Session already in discussion mode." });
       }
   
       console.log("🕒 Session status updated to 'discussion' at", discussionStartTime); 
