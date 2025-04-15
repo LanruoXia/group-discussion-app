@@ -173,6 +173,28 @@ function DiscussionClientContent() {
   const [discussionStartTime, setDiscussionStartTime] = useState<string | null>(
     null
   );
+  async function stopCloudRecording(
+    sessionId: string,
+    cname: string,
+    uid: string,
+    mode: "mix" | "individual"
+  ) {
+    try {
+      const res = await fetch("/api/agora/stop-recording", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, cname, uid, mode }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        console.warn(`❌ Failed to stop ${mode} recording:`, result);
+      } else {
+        console.log(`✅ ${mode} recording stopped`);
+      }
+    } catch (err) {
+      console.error(`❌ Error stopping ${mode} recording:`, err);
+    }
+  }
 
   const { timeLeft } = useCountdown({
     startTime: discussionStartTime,
@@ -184,24 +206,11 @@ function DiscussionClientContent() {
         hasStartedDiscussionRef.current = true;
 
         try {
-          const res = await fetch("/api/agora/stop-recording", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              session_id: sessionId,
-              cname: channel,
-              uid: "123",
-              mode: "mix", // 或者你的实际模式
-            }),
-          });
-
-          if (!res.ok) {
-            const errorText = await res.text();
-            console.error("❌ Failed to stop cloud recording:", errorText);
-          } else {
-            console.log("🛑 Cloud recording stopped successfully");
+          if (sessionId && channel) {
+            await Promise.all([
+              stopCloudRecording(sessionId, channel, "123", "mix"),
+              stopCloudRecording(sessionId, channel, "456", "individual"),
+            ]);
           }
         } catch (error) {
           console.error("❌ Error calling stop-recording API:", error);

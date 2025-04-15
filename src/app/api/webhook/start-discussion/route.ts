@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
     acquireResourceId,
     startCompositeRecording,
+    startIndividualRecording,
   } from "@/lib/agora/cloudRecording";
 
 const supabase = createClient(
@@ -16,10 +17,10 @@ export async function POST(req: NextRequest) {
       const payload = await req.json();
       const session_id = payload.record.session_id;
   
-      console.log("📥 Incoming ready-check for session:", session_id); // 🔍 LOG
+      console.log("📥 Incoming ready-check for session:", session_id); 
   
       if (!session_id) {
-        console.warn("⚠️ Missing session_id in request payload"); // 🔍 LOG
+        console.warn("⚠️ Missing session_id in request payload"); 
         return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
       }
   
@@ -30,14 +31,14 @@ export async function POST(req: NextRequest) {
         .eq("session_id", session_id);
   
       if (fetchError || !participants) {
-        console.error("❌ Failed to fetch participants:", fetchError); // 🔍 LOG
+        console.error("❌ Failed to fetch participants:", fetchError); 
         return NextResponse.json({ error: "Failed to fetch participants" }, { status: 500 });
       }
   
       const realParticipants = participants.filter((p) => !p.is_ai);
       const allReady = realParticipants.every((p) => p.ready);
   
-      console.log("✅ Real participants readiness:", realParticipants, "→ allReady =", allReady); // 🔍 LOG
+      console.log("✅ Real participants readiness:", realParticipants, "→ allReady =", allReady);
   
       if (!allReady) {
         return NextResponse.json({ message: "Not all participants are ready yet." });
@@ -51,16 +52,18 @@ export async function POST(req: NextRequest) {
         .single();
   
       if (sessionError || !sessionData) {
-        console.error("❌ Failed to fetch session code:", sessionError); // 🔍 LOG
+        console.error("❌ Failed to fetch session code:", sessionError); 
         return NextResponse.json({ error: "Failed to fetch session code" }, { status: 500 });
       }
   
       const session_code = sessionData.session_code;
-      console.log("🎯 Session code retrieved:", session_code); // 🔍 LOG
+      console.log("🎯 Session code retrieved:", session_code); 
   
       // 3. Acquire Cloud Recording resource ID
-      const resourceId = await acquireResourceId(session_code, "123");
-      console.log("🆔 Acquired Cloud Recording resourceId:", resourceId); // 🔍 LOG
+      const compositeResourceId  = await acquireResourceId(session_code, "123");
+      const individualResourceId = await acquireResourceId(session_code, "456");
+      console.log("🆔 Acquired Composite Recording resourceId:", compositeResourceId );
+      console.log("🆔 Acquired Individual Recording resourceId:", individualResourceId );
   
       // 4. Update session status
       const discussionStartTime = new Date().toISOString();
@@ -70,25 +73,29 @@ export async function POST(req: NextRequest) {
         .eq("id", session_id);
   
       if (statusError) {
-        console.error("❌ Failed to update session status:", statusError); // 🔍 LOG
+        console.error("❌ Failed to update session status:", statusError); 
         return NextResponse.json({ error: "Failed to update session status" }, { status: 500 });
       }
   
-      console.log("🕒 Session status updated to 'discussion' at", discussionStartTime); // 🔍 LOG
+      console.log("🕒 Session status updated to 'discussion' at", discussionStartTime); 
   
       // 5. Start Cloud Recording
-      const recordingInfo = await startCompositeRecording(resourceId, session_code, "123");
-      console.log("📹 Started Cloud Recording:", recordingInfo); // 🔍 LOG
+      const compositeInfo = await startCompositeRecording(compositeResourceId, session_code, "123");
+      const individualInfo = await startIndividualRecording(individualResourceId, session_code, "456");
+      console.log("📹 Started Cloud Recording:", compositeInfo); 
+      console.log("📹 Started Individual Recording:", individualInfo); 
   
       await supabase
-        .from("sessions")
-        .update({
-          cloud_recording_resource_id: resourceId,
-          cloud_recording_sid: recordingInfo.taskId,
-        })
-        .eq("id", session_id);
+      .from("sessions")
+      .update({
+        cloud_recording_resource_id: compositeResourceId,
+        cloud_recording_sid: compositeInfo.taskId,
+        individual_recording_resource_id: individualResourceId,
+        individual_recording_sid: individualInfo.taskId,
+      })
+      .eq("id", session_id);
   
-      console.log("💾 Recording info saved to Supabase"); // 🔍 LOG
+      console.log("💾 Recording info saved to Supabase"); 
   
       // 6. Broadcast to session_status channel
       const channel = supabase.channel(`session_status_${session_id}`);
@@ -101,11 +108,11 @@ export async function POST(req: NextRequest) {
         },
       });
   
-      console.log("📡 Broadcasted 'ready' status to session_status_" + session_id); // 🔍 LOG
+      console.log("📡 Broadcasted 'ready' status to session_status_" + session_id); 
   
       return NextResponse.json({ message: "All participants ready. Discussion started." });
     } catch (error) {
-      console.error("❌ Internal error in start-recording:", error); // 🔍 LOG
+      console.error("❌ Internal error in start-recording:", error); 
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }

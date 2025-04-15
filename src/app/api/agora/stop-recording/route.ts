@@ -25,7 +25,12 @@ export async function POST(req: NextRequest) {
 
     const { data: session, error } = await supabase
       .from("sessions")
-      .select("cloud_recording_resource_id, cloud_recording_sid")
+      .select(`
+        cloud_recording_resource_id,
+        cloud_recording_sid,
+        individual_recording_resource_id,
+        individual_recording_sid
+      `)
       .eq("id", session_id)
       .single();
 
@@ -33,19 +38,25 @@ export async function POST(req: NextRequest) {
       console.error("❌ Failed to fetch session resource info:", error || "session not found");
       return NextResponse.json({ error: "Session not found or missing resource info" }, { status: 404 });
     }
-
-    const { cloud_recording_resource_id: resourceId, cloud_recording_sid: sid } = session;
-
-    console.log("🔍 Retrieved recording info:", {
-      resourceId,
-      sid,
-    });
-
+    
+    let resourceId: string | null = null;
+    let sid: string | null = null;
+    
+    if (mode === "individual") {
+      resourceId = session.individual_recording_resource_id;
+      sid = session.individual_recording_sid;
+    } else {
+      resourceId = session.cloud_recording_resource_id;
+      sid = session.cloud_recording_sid;
+    }
+    
+    // 如果已经被置空或者之前手动设为 null
     if (!resourceId || !sid) {
-      console.warn("⚠️ resourceId or sid is missing in session record", session);
-      return NextResponse.json({ error: "Missing recording resourceId or sid" }, { status: 400 });
+      console.warn(`⏭️ Recording for mode ${mode} already stopped or not started.`);
+      return NextResponse.json({ message: `Recording for ${mode} already stopped or not started.` });
     }
 
+    
     const stopResult = await stopCloudRecording({
       resourceId,
       sid,
@@ -55,6 +66,17 @@ export async function POST(req: NextRequest) {
     });
 
     console.log("✅ Successfully stopped recording:", stopResult);
+    // 更新数据库，清空对应 recording 资源字段，确保幂等性
+    await supabase
+    .from("sessions")
+    .update({
+      ...(mode === "mix"
+        ? { cloud_recording_sid: null, cloud_recording_resource_id: null }
+        : { individual_recording_sid: null, individual_recording_resource_id: null }),
+    })
+    .eq("id", session_id);
+
+    console.log(`🧽 Cleared ${mode} recording info in session ${session_id}`);
 
     return NextResponse.json({ message: "Cloud recording stopped", stopResult });
   } catch (err) {

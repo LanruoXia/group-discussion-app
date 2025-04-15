@@ -89,7 +89,6 @@ export async function startCompositeRecording(resourceId: string, session_code: 
               }
               // subscribeVideoUids: ["#allstream#"], 
               // subscribeAudioUids: ["#allstream#"],
-              // subscribeUidGroup: 0
             },
             recordingFileConfig: {
               avFileType: ["hls","mp4"],
@@ -108,13 +107,13 @@ export async function startCompositeRecording(resourceId: string, session_code: 
     );
 
     const data = await response.json();
-    console.log("📦 Agora response from startCompositeRecording:", data); // 🔍 加这个日志
+    console.log("📦 Agora response from startCompositeRecording:", data); 
     if (!data || !data.sid) {
       throw new Error("Failed to start composite recording");
     }
 
     return {
-      taskId: data.sid, // Agora 会返回 sid 字段
+      taskId: data.sid, 
       resourceId,
     };
   } catch (error) {
@@ -123,35 +122,70 @@ export async function startCompositeRecording(resourceId: string, session_code: 
   }
 }
 
-// Start individual recording for a user
-export async function startIndividualRecording(resourceId: string, session_id: string) {
+// Start individual recording (each user's audio/video separately)
+export async function startIndividualRecording(resourceId: string, session_code: string, uid: string) {
   try {
-    const response = await fetch("https://api.agora.io/v1/apps/your_app_id/cloud_recording/start", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Basic ${process.env.AGORA_AUTH}`,
-      },
-      body: JSON.stringify({
-        resourceId,
-        clientRequest: {
-          cname: session_id,
-          recordingConfig: {
-            avStreamType: 0,  // 0: High quality (audio + video)
-            channelType: 1,   // 1: Live broadcast mode
-          },
-          recordingFileConfig: {
-            avFileType: ["mp4", "aac"],  // MP4 for video, AAC for audio
-          },
+    const expirationTimeInSeconds = 3600;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      appId,
+      appCertificate,
+      session_code,
+      parseInt(uid),
+      RtcRole.PUBLISHER,
+      privilegeExpiredTs
+    );
+
+    const response = await fetch(
+      `https://api.agora.io/v1/apps/${appId}/cloud_recording/resourceid/${resourceId}/mode/individual/start`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${authorization}`,
         },
-      }),
-    });
+        body: JSON.stringify({
+          uid,
+          cname: session_code,
+          clientRequest: {
+            token,
+            recordingConfig: {
+              maxIdleTime: 600, // 10 minutes
+              streamTypes: 2, // 2 = audio & video
+              streamMode: "standard",
+              audioProfile: 1,
+              channelType: 1, // 1 = live broadcast mode (required for individual mode)
+              videoStreamType: 0,
+              subscribeVideoUids: ["#allstream#"], 
+              subscribeAudioUids: ["#allstream#"],
+              subscribeUidGroup: 1
+            },
+            storageConfig: {
+              vendor: parseInt(process.env.STORAGE_VENDOR!),
+              region: parseInt(process.env.STORAGE_REGION!),
+              bucket: process.env.STORAGE_BUCKET!,
+              accessKey: process.env.STORAGE_ACCESS_KEY!,
+              secretKey: process.env.STORAGE_SECRET_KEY!,
+              fileNamePrefix: ["individualRecordings", session_code]
+            },
+          },
+        }),
+      }
+    );
 
     const data = await response.json();
-    if (!data || !data.taskId) {
+    console.log("📦 Agora response from startIndividualRecording:", data);
+
+    if (!data || !data.sid) {
       throw new Error("Failed to start individual recording");
     }
-    return data;
+
+    return {
+      taskId: data.sid,
+      resourceId,
+    };
   } catch (error) {
     console.error("❌ Error starting individual recording:", error);
     throw new Error("Failed to start individual recording");
