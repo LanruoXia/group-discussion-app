@@ -80,13 +80,13 @@ export async function startCompositeRecording(resourceId: string, session_code: 
               channelType: 0, // 
               videoStreamType: 0, // 0 = high quality
               transcodingConfig: {
-                height: 640,
-                width: 360,
-                bitrate: 500,
-                fps: 15,
-                mixedVideoLayout: 1,
-                backgroundColor: "#000000",
-              },
+                width: 1280,          // 视频宽度
+                height: 720,          // 视频高度
+                fps: 15,              // 帧率
+                bitrate: 1200,        // 比特率，适当调高以保证画质
+                mixedVideoLayout: 1,  // 1 = adaptive layout，自动均匀分布
+                backgroundColor: "#000000",  // 黑色背景
+              }
               // subscribeVideoUids: ["#allstream#"], 
               // subscribeAudioUids: ["#allstream#"],
               // subscribeUidGroup: 0
