@@ -198,7 +198,7 @@ function DiscussionClientContent() {
 
   const { timeLeft } = useCountdown({
     startTime: discussionStartTime,
-    durationSeconds: 30,
+    durationSeconds: 90,
     onExpire: async () => {
       console.log("⏰ 倒计时结束，自动停止录音并提交 transcript");
       if (recording) {
