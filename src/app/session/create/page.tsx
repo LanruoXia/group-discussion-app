@@ -17,6 +17,11 @@ export default function CreateSessionPage() {
   const [isTeacher, setIsTeacher] = useState(false);
 
   const router = useRouter();
+  const testTopics = [
+    "Should AI Replace Human Teachers?",
+    "Money or Coins",
+    "Taking Photos in Public Areas",
+  ];
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -122,7 +127,7 @@ export default function CreateSessionPage() {
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-center">
-        Create Group Discussion Session
+        Create a Group Interaction Session
       </h1>
 
       <div className="space-y-6 bg-white p-6 rounded-lg shadow">
@@ -130,14 +135,20 @@ export default function CreateSessionPage() {
           <label className="block mb-2 font-medium text-gray-700">
             Test Topic *
           </label>
-          <input
-            type="text"
+          <select
             value={testTopic}
             onChange={(e) => setTestTopic(e.target.value)}
-            placeholder="Enter the topic for group discussion"
             className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
+          >
+            <option value="" disabled>
+              Please select a topic
+            </option>
+            {testTopics.map((topic) => (
+              <option key={topic} value={topic}>
+                {topic}
+              </option>
+            ))}
+          </select>
         </div>
 
         {isTeacher && (

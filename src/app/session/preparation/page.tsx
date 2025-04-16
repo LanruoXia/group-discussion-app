@@ -36,6 +36,7 @@ function PreparationContent() {
   const [timeRemaining, setTimeRemaining] = useState<number>(600); // 10 minutes preparation time
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [promptContent, setPromptContent] = useState<string | null>(null);
 
   // Effect to disable navigation and prevent page refresh during preparation
   useEffect(() => {
@@ -109,6 +110,18 @@ function PreparationContent() {
     );
     const remaining = Math.max(600 - elapsed, 0);
     setSessionStatus(current);
+    // 获取对应的 prompt 内容
+    const { data: promptData, error: promptError } = await supabase
+      .from("prompt")
+      .select("content")
+      .eq("test_topic", current.test_topic)
+      .maybeSingle();
+
+    if (promptError) {
+      console.warn("⚠️ Failed to fetch prompt content:", promptError.message);
+    } else {
+      setPromptContent(promptData?.content ?? null);
+    }
     setTimeRemaining(remaining);
     setLoading(false);
 
@@ -221,10 +234,17 @@ function PreparationContent() {
 
       {sessionStatus && (
         <>
-          {/* Topic display section */}
+          {/* Topic display section with prompt content */}
           <div className="bg-white shadow rounded p-6 mb-6">
             <h2 className="text-xl font-semibold mb-2">💬 Topic</h2>
-            <p>{sessionStatus.test_topic}</p>
+            <p className="text-lg font-medium text-gray-800 mb-2">
+              {sessionStatus.test_topic}
+            </p>
+            {promptContent && (
+              <p className="whitespace-pre-wrap text-gray-700">
+                {promptContent}
+              </p>
+            )}
           </div>
 
           {/* Instructions display section */}

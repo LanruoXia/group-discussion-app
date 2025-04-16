@@ -50,48 +50,55 @@ function ResultsContent() {
         return;
       }
 
-      const storedUsername = sessionStorage.getItem("username");
-      setUsername(storedUsername ?? "Unknown");
+      // 查询用户名
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("name, username")
+        .eq("id", userId)
+        .single();
 
-      // 查询 session 信息
-      const { data: sessionData, error: sessionError } = await supabase
+      if (profileError) {
+        console.warn("⚠️ Failed to fetch user profile:", profileError);
+      }
+
+      const nameToShow =
+        profile && profile.name?.trim()
+          ? profile.name
+          : profile?.username || "Unknown";
+
+      setUsername(nameToShow);
+
+      const { data: sessionData } = await supabase
         .from("sessions")
         .select("*")
         .eq("id", sessionId)
         .single();
 
-      if (sessionError || !sessionData) {
-        setError("⚠️ Session not found.");
-        setLoading(false);
-        return;
-      }
-
       setSession(sessionData);
 
-      // 查询 evaluation 数据
-      const { data: evaluationData, error: evalError } = await supabase
+      const { data: evaluationData } = await supabase
         .from("evaluation")
         .select("*")
         .eq("user_id", userId)
         .eq("session_id", sessionId)
         .single();
 
-      if (evalError || !evaluationData) {
-        setError("⚠️ Evaluation not found for your session.");
-        setLoading(false);
-        return;
-      }
-
       setEvaluation(evaluationData);
 
-      // 获取 transcript 内容
-      const transcriptRes = await fetch(
-        `/api/transcript/latest?session_id=${sessionId}`
-      );
-      const transcriptData = await transcriptRes.json();
+      const { data: merged, error: mergedError } = await supabase
+        .from("merged_transcripts")
+        .select("merged_transcript")
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: false }) // 最新的放最前
+        .limit(1)
+        .maybeSingle();
 
-      if (transcriptRes.ok && transcriptData) {
-        setTranscript(transcriptData);
+      if (mergedError) {
+        console.warn("⚠️ Failed to fetch merged transcript:", mergedError);
+      }
+
+      if (merged) {
+        setTranscript({ content: merged.merged_transcript });
       }
 
       setLoading(false);
@@ -127,44 +134,55 @@ function ResultsContent() {
   return (
     <div className="min-h-screen bg-gray-50 py-16 flex flex-col items-center">
       <h1 className="text-5xl font-bold mb-10 text-blue-500">
-        Your Evaluation
+        Group Interaction Evaluation
       </h1>
 
-      <div className="max-w-4xl w-full bg-white shadow p-8 rounded mb-10">
-        <h2 className="text-xl font-semibold mb-2">🧾 Summary</h2>
-        <p>
-          <strong>Name:</strong> {username}
-        </p>
-        <p>
-          <strong>Session Code:</strong> {session.session_code}
-        </p>
-        <p>
-          <strong>Topic:</strong> {session.test_topic}
-        </p>
-        <p>
-          <strong>Time:</strong> {new Date(session.created_at).toLocaleString()}
-        </p>
-        <p>
-          <strong>Speaking Time:</strong> {evaluation.speaking_time}s
-        </p>
-        <p>
-          <strong>Word Count:</strong> {evaluation.word_count}
-        </p>
-        <p>
-          <strong>Total Score:</strong> {totalScore} / 28
-        </p>
-      </div>
+      {/* Summary & Performance in 2 columns */}
+      <div className="flex flex-col md:flex-row gap-6 max-w-4xl w-full mb-10">
+        <div className="bg-blue-50 shadow p-6 rounded-lg flex-1">
+          <h2 className="text-lg font-semibold text-blue-600 mb-2">
+            📊 Performance
+          </h2>
+          <div className="flex items-center justify-center mt-6 mb-6">
+            <div className="relative w-32 h-32 rounded-full border-4 border-blue-600 flex items-center justify-center">
+              <span className="text-4xl font-bold text-blue-600">
+                {totalScore}
+              </span>
+              <span className="absolute bottom-2 text-sm text-gray-500">
+                / 28
+              </span>
+            </div>
+          </div>
 
-      {transcript && (
-        <div className="max-w-4xl w-full bg-white shadow p-8 rounded mb-10">
-          <h2 className="text-xl font-semibold mb-4">📝 Session Transcript</h2>
-          <div className="bg-gray-50 p-4 rounded">
-            <p className="whitespace-pre-wrap">{transcript.content}</p>
+          <div className="space-y-1 text-sm">
+            <p>
+              🕐 <strong>Speaking Time:</strong> {evaluation.speaking_time || 0}
+              s
+            </p>
+            <p>
+              📝 <strong>Word Count:</strong> {evaluation.word_count || 0}
+            </p>
           </div>
         </div>
-      )}
+        <div className="bg-white shadow p-6 rounded-lg flex-1">
+          <h2 className="text-lg font-semibold mb-2">🧾 Summary</h2>
+          <p>
+            <strong>Name:</strong> {username}
+          </p>
+          <p>
+            <strong>Session Code:</strong> {session.session_code}
+          </p>
+          <p>
+            <strong>Topic:</strong> {session.test_topic}
+          </p>
+          <p>
+            <strong>Time:</strong>{" "}
+            {new Date(session.created_at).toLocaleString()}
+          </p>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-2 gap-6 max-w-4xl w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full">
         <EvaluationCard
           title="Pronunciation & Delivery"
           score={evaluation.pronunciation_delivery_score}
@@ -186,6 +204,15 @@ function ResultsContent() {
           comment={evaluation.ideas_organization_comment}
         />
       </div>
+
+      {transcript && (
+        <div className="max-w-4xl w-full bg-white shadow p-8 rounded mt-10 mb-10">
+          <h2 className="text-xl font-semibold mb-4">📝 Session Transcript</h2>
+          <div className="bg-gray-50 p-4 rounded">
+            <p className="whitespace-pre-wrap">{transcript.content}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
