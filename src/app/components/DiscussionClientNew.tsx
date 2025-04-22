@@ -416,8 +416,10 @@ function DiscussionClientContent() {
             "with UID:",
             uid
           );
-          await joinChannel(channel, uid);
-          console.log("✅ Successfully joined Agora channel!");
+          if (channel && uid && sessionId) {
+            await joinChannel(channel, uid, sessionId);
+            console.log("✅ Successfully joined Agora channel!");
+          }
         }
 
         setLoading(false);

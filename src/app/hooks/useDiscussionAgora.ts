@@ -7,6 +7,7 @@ import AgoraRTC, {
   ILocalVideoTrack,
 } from "agora-rtc-sdk-ng";
 import protoRoot from "@/protobuf/SttMessage_es6.js";
+import { supabase } from "../supabase";
 
 // Word 类型
 interface Word {
@@ -24,7 +25,7 @@ export interface UseDiscussionAgoraReturn {
   localAudioTrack: ILocalAudioTrack | null;
   localVideoTrack: ILocalVideoTrack | null;
   remoteUsers: IAgoraRTCRemoteUser[];
-  join: (channel: string, uid: string) => Promise<void>;
+  join: (channel: string, uid: string, sessionId: string) => Promise<void>;
   leave: () => Promise<void>;
   ready: boolean;
   captions: Array<{ uid: string; text: string }>;
@@ -120,7 +121,7 @@ export function useDiscussionAgora(): UseDiscussionAgoraReturn {
   }, []);
 
   // Join channel function
-  const join = async (channel: string, uid: string) => {
+  const join = async (channel: string, uid: string, sessionId: string) => {
     if (!client) return;
 
     try {
@@ -135,6 +136,21 @@ export function useDiscussionAgora(): UseDiscussionAgoraReturn {
       // Join the channel with token
       const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
       await client.join(appId, channel, token, uid);
+      // 获取 internal UID（加入频道后）
+      const internalUid = client.uid;
+      console.log("🎯 Agora internal UID:", internalUid);
+      const { error } = await supabase
+        .from("participants")
+        .update({ agora_uid: internalUid })
+        .eq("session_id", sessionId)
+        .eq("user_id", uid);
+
+      if (error) {
+        console.error("Failed to update internal_uid in Supabase:", error);
+      } else {
+        console.log("agora_uid updated successfully");
+      }
+
 
       // Create and publish local tracks
       const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
