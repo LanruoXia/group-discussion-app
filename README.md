@@ -1,17 +1,23 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Prepration
+Make sure that you have the environment variables below.
+
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+OPENAI_API_KEY
+OPENAI_BASE_URL
+NEXT_PUBLIC_AGORA_APP_ID
+SUPABASE_SERVICE_ROLE_KEY
+AGORA_CUSTOMER_ID
+AGORA_CUSTOMER_SECRET
+
 ## Getting Started
 
 First, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
