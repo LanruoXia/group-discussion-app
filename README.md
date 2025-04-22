@@ -12,6 +12,11 @@ SUPABASE_SERVICE_ROLE_KEY
 AGORA_CUSTOMER_ID
 AGORA_CUSTOMER_SECRET
 
+Also, install dependencies by
+```
+npm install
+```
+
 ## Getting Started
 
 First, run the development server:
