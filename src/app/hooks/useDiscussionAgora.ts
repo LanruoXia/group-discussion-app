@@ -144,6 +144,21 @@ export function useDiscussionAgora(): UseDiscussionAgoraReturn {
 
       setLocalAudioTrack(audioTrack);
       setLocalVideoTrack(videoTrack);
+      
+      // 获取 internal UID（加入频道后）
+      const internalUid = client.uid;
+      console.log("🎯 Agora internal UID:", internalUid);
+      const { error } = await supabase
+        .from("participants")
+        .update({ agora_uid: internalUid })
+        .eq("session_id", sessionId)
+        .eq("user_id", uid);
+
+      if (error) {
+        console.error("Failed to update internal_uid in Supabase:", error);
+      } else {
+        console.log("agora_uid updated successfully");
+      }
     } catch (error) {
       console.error("Error joining channel:", error);
       throw error;
