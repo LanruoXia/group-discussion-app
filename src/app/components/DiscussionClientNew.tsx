@@ -407,19 +407,28 @@ function DiscussionClientContent() {
         }
 
         setSessionId(session.id);
+        const { data: me, error: meError } = await supabase
+          .from("participants")
+          .select("agora_uid")
+          .eq("session_id", session.id)
+          .eq("user_id", uid)
+          .single();
+
+        if (meError || !me?.agora_uid) {
+          setError("Failed to get your agora_uid");
+          return;
+        }
+
+        const myAgoraUid = me.agora_uid;
 
         // Auto-join if specified
         if (autoJoin && agoraReady) {
           console.log(
-            "🔄 Auto-joining Agora channel:",
-            channel,
-            "with UID:",
-            uid
+            `participant [${uid}] Auto-joining Agora channel with Agora UID: ${myAgoraUid}`
           );
-          if (channel && uid && sessionId) {
-            await joinChannel(channel, uid, sessionId);
-            console.log("✅ Successfully joined Agora channel!");
-          }
+
+          await joinChannel(channel, myAgoraUid);
+          console.log("✅ Successfully joined Agora channel!");
         }
 
         setLoading(false);

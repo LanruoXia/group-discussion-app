@@ -101,6 +101,12 @@ function JoinPageContent() {
         setLoading(false);
         return;
       }
+      const baseUid =
+        Math.abs(
+          (authSession.user.id + session.id)
+            .split("")
+            .reduce((acc, char) => acc + char.charCodeAt(0), 0)
+        ) % 100000;
 
       // 6. 添加用户到participants
       const { error: joinError } = await supabase.from("participants").insert([
@@ -109,6 +115,7 @@ function JoinPageContent() {
           user_id: authSession.user.id,
           is_ai: false,
           username: userName,
+          agora_uid: baseUid,
         },
       ]);
 

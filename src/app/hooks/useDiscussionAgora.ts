@@ -25,7 +25,7 @@ export interface UseDiscussionAgoraReturn {
   localAudioTrack: ILocalAudioTrack | null;
   localVideoTrack: ILocalVideoTrack | null;
   remoteUsers: IAgoraRTCRemoteUser[];
-  join: (channel: string, uid: string, sessionId: string) => Promise<void>;
+  join: (channel: string, uid: string) => Promise<void>;
   leave: () => Promise<void>;
   ready: boolean;
   captions: Array<{ uid: string; text: string }>;
@@ -121,7 +121,7 @@ export function useDiscussionAgora(): UseDiscussionAgoraReturn {
   }, []);
 
   // Join channel function
-  const join = async (channel: string, uid: string, sessionId: string) => {
+  const join = async (channel: string, uid: string) => {
     if (!client) return;
 
     try {
@@ -144,21 +144,10 @@ export function useDiscussionAgora(): UseDiscussionAgoraReturn {
 
       setLocalAudioTrack(audioTrack);
       setLocalVideoTrack(videoTrack);
-      
-      // 获取 internal UID（加入频道后）
-      const internalUid = client.uid;
-      console.log("🎯 Agora internal UID:", internalUid);
-      const { error } = await supabase
-        .from("participants")
-        .update({ agora_uid: internalUid })
-        .eq("session_id", sessionId)
-        .eq("user_id", uid);
 
-      if (error) {
-        console.error("Failed to update internal_uid in Supabase:", error);
-      } else {
-        console.log("agora_uid updated successfully");
-      }
+      const internalUid = client.uid as number;
+      console.log("🎯 Agora internal UID:", internalUid);
+      
     } catch (error) {
       console.error("Error joining channel:", error);
       throw error;
