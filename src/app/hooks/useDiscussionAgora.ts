@@ -7,7 +7,6 @@ import AgoraRTC, {
   ILocalVideoTrack,
 } from "agora-rtc-sdk-ng";
 import protoRoot from "@/protobuf/SttMessage_es6.js";
-import { supabase } from "../supabase";
 
 // Word 类型
 interface Word {
