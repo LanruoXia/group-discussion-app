@@ -59,25 +59,6 @@ STORAGE_SECRET_KEY=your-storage-secret-key
 
 ```
 
-## Prepration
-
-Make sure that you have the environment variables below.
-
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-OPENAI_API_KEY
-OPENAI_BASE_URL
-NEXT_PUBLIC_AGORA_APP_ID
-SUPABASE_SERVICE_ROLE_KEY
-AGORA_CUSTOMER_ID
-AGORA_CUSTOMER_SECRET
-
-Also, install dependencies by
-
-```
-npm install
-```
-
 ## Getting Started
 
 1. **Clone the repository**
