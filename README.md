@@ -161,7 +161,6 @@ npm run lint
 - All API routes are protected with authentication
 - Sensitive data is encrypted
 - Environment variables are used for secrets
-- Regular security audits are performed
 
 ## Contributing
 
