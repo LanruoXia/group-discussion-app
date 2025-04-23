@@ -63,15 +63,10 @@ STORAGE_SECRET_KEY=your-storage-secret-key
 
 1. **Clone the repository**
 
-<<<<<<< HEAD
-
-````bash
-npm run dev
-=======
    ```bash
    git clone [repository-url]
    cd [your-project-dir]
-````
+   ```
 
 2. **Install dependencies**
 
@@ -109,7 +104,6 @@ src/
 │   └── lib/               # Utility functions
 ├── public/                # Static assets
 └── types/                 # TypeScript type definitions
->>>>>>> 39e6b35 (docs: update README)
 ```
 
 ## Development Workflow
@@ -182,3 +176,7 @@ npm run lint
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
+
+```
+
+```
