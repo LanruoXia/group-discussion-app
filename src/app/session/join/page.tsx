@@ -3,6 +3,8 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../supabase";
+import { motion } from "framer-motion";
+import Link from "next/link";
 
 // 包装组件
 function JoinPageContent() {
@@ -137,63 +139,199 @@ function JoinPageContent() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md w-full">
-          <div className="text-red-600 text-xl mb-4">{error}</div>
-          <div className="space-x-4">
-            <button
+      <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="text-center p-8 bg-white rounded-xl shadow-lg max-w-md w-full"
+        >
+          <div className="flex items-center justify-center mb-6 text-red-500">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="w-12 h-12"
+            >
+              <path
+                fillRule="evenodd"
+                d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="text-red-600 text-xl font-semibold mb-4"
+          >
+            {error}
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.3 }}
+            className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4 mt-6"
+          >
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => router.push("/session/create")}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium rounded-xl shadow-md transition-colors duration-200"
             >
               Create New Session
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => {
                 setError(null);
                 setCode("");
               }}
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+              className="px-5 py-2.5 bg-white text-blue-600 border border-blue-600 hover:bg-blue-50 rounded-xl font-medium shadow-md transition-colors duration-200"
             >
               Try Again
-            </button>
-          </div>
-        </div>
+            </motion.button>
+          </motion.div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="p-8 bg-white rounded-lg shadow-lg max-w-md w-full">
-        <h1 className="text-2xl font-bold mb-6 text-center">Join Session</h1>
-        <form onSubmit={handleJoin}>
-          <div className="mb-4">
-            <label
-              htmlFor="code"
-              className="block text-sm font-medium text-gray-700 mb-2"
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg"
+    >
+      <div className="w-full border-l-4 border-blue-600 pl-4 mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Join Session</h1>
+        <p className="text-gray-600 mt-1">Enter a session code to join</p>
+      </div>
+
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-md"
+        >
+          <div className="flex items-center">
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="currentColor"
+              viewBox="0 0 20 20"
             >
-              Session Code
-            </label>
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span>{error}</span>
+          </div>
+        </motion.div>
+      )}
+
+      <form onSubmit={handleJoin} className="space-y-6">
+        <div>
+          <label
+            htmlFor="code"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Session Code
+          </label>
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-600">
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+            </span>
             <input
-              type="text"
               id="code"
+              type="text"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter session code"
+              className="block w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+              placeholder="Enter 6-digit code"
+              maxLength={6}
               required
             />
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            {loading ? "Joining..." : "Join Session"}
-          </button>
-        </form>
-      </div>
-    </div>
+          <p className="mt-1 text-xs text-gray-500">
+            The code is 6 characters and was shared by your teacher or session
+            creator
+          </p>
+        </div>
+
+        <motion.button
+          type="submit"
+          whileHover={{
+            scale: 1.03,
+            boxShadow: "0px 5px 15px rgba(37, 99, 235, 0.3)",
+          }}
+          whileTap={{ scale: 0.98 }}
+          className={`w-full py-3 px-4 flex justify-center items-center rounded-xl text-white font-medium ${
+            loading
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+          }`}
+          disabled={loading}
+        >
+          {loading ? (
+            <div className="flex items-center">
+              <svg
+                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <span>Validating...</span>
+            </div>
+          ) : (
+            "Join Session"
+          )}
+        </motion.button>
+
+        <div className="flex justify-center mt-4">
+          <Link href="/" passHref>
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="text-gray-600 hover:text-blue-600 text-sm font-medium underline"
+            >
+              Back to Home
+            </motion.button>
+          </Link>
+        </div>
+      </form>
+    </motion.div>
   );
 }
 
@@ -202,15 +340,19 @@ export default function JoinPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen bg-gray-50">
-          <div className="text-center">
-            <div className="animate-spin inline-block rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
-            <p>Loading...</p>
+        <div className="flex items-center justify-center min-h-screen bg-[#f5f7fa]">
+          <div className="flex flex-col items-center">
+            <div className="w-16 h-16 border-t-4 border-blue-600 border-solid rounded-full animate-spin"></div>
+            <div className="mt-4 text-lg text-blue-600 font-medium">
+              Loading...
+            </div>
           </div>
         </div>
       }
     >
-      <JoinPageContent />
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#f5f7fa] p-4">
+        <JoinPageContent />
+      </div>
     </Suspense>
   );
 }

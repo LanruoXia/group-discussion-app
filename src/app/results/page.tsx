@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../supabase";
+import { motion } from "framer-motion";
 
 type Evaluation = {
   pronunciation_delivery_score: number;
@@ -28,6 +29,38 @@ type Transcript = {
   content: string;
 };
 
+// Score to color mapping for visual feedback
+const getScoreColor = (score: number) => {
+  if (score >= 6) return "text-green-600";
+  if (score >= 4) return "text-blue-600";
+  if (score >= 2) return "text-yellow-600";
+  return "text-red-600";
+};
+
+// Score to background color for visual feedback
+const getScoreBgColor = (score: number) => {
+  if (score >= 6) return "bg-green-100";
+  if (score >= 4) return "bg-blue-100";
+  if (score >= 2) return "bg-yellow-100";
+  return "bg-red-100";
+};
+
+// Animation variants for staggered animations
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 },
+};
+
 function ResultsContent() {
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [transcript, setTranscript] = useState<Transcript | null>(null);
@@ -35,6 +68,7 @@ function ResultsContent() {
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [showTranscript, setShowTranscript] = useState<boolean>(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -108,19 +142,58 @@ function ResultsContent() {
   }, [userId, sessionId]);
 
   if (loading) {
-    return <div className="text-center p-8">Loading your result...</div>;
+    return (
+      <div className="fixed inset-0 bg-[#f5f7fa] flex items-center justify-center">
+        <div className="text-center bg-white p-8 rounded-xl shadow-lg">
+          <div className="mx-auto mb-6 flex justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600 border-opacity-75"></div>
+          </div>
+          <h1 className="text-3xl font-bold mb-2 text-blue-600">
+            Loading Results...
+          </h1>
+          <p className="text-gray-500">Your evaluation is being prepared</p>
+        </div>
+      </div>
+    );
   }
 
   if (error || !evaluation || !session) {
     return (
-      <div className="text-center text-red-500 mt-10">
-        {error || "Failed to load evaluation data"} <br />
-        <button
-          onClick={() => router.push("/")}
-          className="mt-4 px-4 py-2 border border-red-500 text-red-500 rounded hover:bg-red-100"
+      <div className="fixed inset-0 bg-[#f5f7fa] flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center bg-white p-8 rounded-xl shadow-lg max-w-md"
         >
-          Back to Home
-        </button>
+          <div className="text-red-500 font-medium mb-6">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-16 w-16 mx-auto mb-4 text-red-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <p className="text-xl mb-2">Error Loading Results</p>
+            <p className="text-gray-600 text-base">
+              {error || "Failed to load evaluation data"}
+            </p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push("/")}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow font-medium"
+          >
+            Back to Home
+          </motion.button>
+        </motion.div>
       </div>
     );
   }
@@ -131,88 +204,236 @@ function ResultsContent() {
     evaluation.vocabulary_patterns_score +
     evaluation.ideas_organization_score;
 
+  // Calculate total score percentage
+  const scorePercentage = Math.round((totalScore / 28) * 100);
+  const scoreRating =
+    scorePercentage >= 80
+      ? "Excellent"
+      : scorePercentage >= 65
+      ? "Good"
+      : scorePercentage >= 50
+      ? "Satisfactory"
+      : "Needs Improvement";
+
   return (
-    <div className="min-h-screen bg-gray-50 py-16 flex flex-col items-center">
-      <h1 className="text-5xl font-bold mb-10 text-blue-500">
-        Group Interaction Evaluation
-      </h1>
+    <div className="min-h-screen bg-[#f5f7fa] py-10 md:py-16 px-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-5xl mx-auto"
+      >
+        <motion.div
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="text-center mb-8 md:mb-12"
+        >
+          <h1 className="text-4xl md:text-5xl font-bold mb-3 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            Performance Analysis
+          </h1>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Your speaking assessment for the group interaction task
+          </p>
+        </motion.div>
 
-      {/* Summary & Performance in 2 columns */}
-      <div className="flex flex-col md:flex-row gap-6 max-w-4xl w-full mb-10">
-        <div className="bg-blue-50 shadow p-6 rounded-lg flex-1">
-          <h2 className="text-lg font-semibold text-blue-600 mb-2">
-            📊 Performance
-          </h2>
-          <div className="flex items-center justify-center mt-6 mb-6">
-            <div className="relative w-32 h-32 rounded-full border-4 border-blue-600 flex items-center justify-center">
-              <span className="text-4xl font-bold text-blue-600">
-                {totalScore}
-              </span>
-              <span className="absolute bottom-2 text-sm text-gray-500">
-                / 28
-              </span>
+        {/* Summary Card with Score Circle */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+          className="mb-8 md:mb-12"
+        >
+          <motion.div
+            variants={itemVariants}
+            className="bg-white rounded-xl shadow-lg overflow-hidden"
+          >
+            <div className="p-6 md:p-8">
+              <div className="flex flex-col md:flex-row gap-8 items-center">
+                {/* Score Circle */}
+                <div className="flex-shrink-0">
+                  <div className="relative">
+                    <svg className="w-40 h-40">
+                      <circle
+                        className="text-gray-200"
+                        strokeWidth="6"
+                        stroke="currentColor"
+                        fill="transparent"
+                        r="70"
+                        cx="80"
+                        cy="80"
+                      />
+                      <circle
+                        className="text-blue-600"
+                        strokeWidth="6"
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="transparent"
+                        r="70"
+                        cx="80"
+                        cy="80"
+                        strokeDasharray={`${
+                          (scorePercentage * 439.6) / 100
+                        } 439.6`}
+                        strokeDashoffset="0"
+                        transform="rotate(-90 80 80)"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                      <span className="text-4xl font-bold text-blue-600">
+                        {totalScore}
+                      </span>
+                      <span className="text-gray-500 text-sm font-medium">
+                        out of 28
+                      </span>
+                      <span
+                        className={`mt-1 text-sm font-semibold px-2 py-0.5 rounded-full ${getScoreBgColor(
+                          totalScore / 4
+                        )}`}
+                      >
+                        {scoreRating}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Session Info */}
+                <div className="flex-grow space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-sm font-medium text-gray-500">
+                        Student Name
+                      </h3>
+                      <p className="font-medium text-gray-800">{username}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-sm font-medium text-gray-500">
+                        Session Code
+                      </h3>
+                      <p className="font-medium text-gray-800">
+                        {session.session_code}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-sm font-medium text-gray-500">
+                        Discussion Topic
+                      </h3>
+                      <p className="font-medium text-gray-800">
+                        {session.test_topic}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-sm font-medium text-gray-500">
+                        Session Date
+                      </h3>
+                      <p className="font-medium text-gray-800">
+                        {new Date(session.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          </motion.div>
+        </motion.div>
 
-          <div className="space-y-1 text-sm">
-            <p>
-              🕐 <strong>Speaking Time:</strong> {evaluation.speaking_time || 0}
-              s
-            </p>
-            <p>
-              📝 <strong>Word Count:</strong> {evaluation.word_count || 0}
-            </p>
-          </div>
-        </div>
-        <div className="bg-white shadow p-6 rounded-lg flex-1">
-          <h2 className="text-lg font-semibold mb-2">🧾 Summary</h2>
-          <p>
-            <strong>Name:</strong> {username}
-          </p>
-          <p>
-            <strong>Session Code:</strong> {session.session_code}
-          </p>
-          <p>
-            <strong>Topic:</strong> {session.test_topic}
-          </p>
-          <p>
-            <strong>Time:</strong>{" "}
-            {new Date(session.created_at).toLocaleString()}
-          </p>
-        </div>
-      </div>
+        {/* Evaluation Categories */}
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">
+          Performance Categories
+        </h2>
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8"
+        >
+          <EvaluationCard
+            icon="🎤"
+            title="Pronunciation & Delivery"
+            score={evaluation.pronunciation_delivery_score}
+            comment={evaluation.pronunciation_delivery_comment}
+          />
+          <EvaluationCard
+            icon="🔄"
+            title="Communication Strategies"
+            score={evaluation.communication_strategies_score}
+            comment={evaluation.communication_strategies_comment}
+          />
+          <EvaluationCard
+            icon="📚"
+            title="Vocabulary & Patterns"
+            score={evaluation.vocabulary_patterns_score}
+            comment={evaluation.vocabulary_patterns_comment}
+          />
+          <EvaluationCard
+            icon="💡"
+            title="Ideas & Organization"
+            score={evaluation.ideas_organization_score}
+            comment={evaluation.ideas_organization_comment}
+          />
+        </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full">
-        <EvaluationCard
-          title="Pronunciation & Delivery"
-          score={evaluation.pronunciation_delivery_score}
-          comment={evaluation.pronunciation_delivery_comment}
-        />
-        <EvaluationCard
-          title="Communication Strategies"
-          score={evaluation.communication_strategies_score}
-          comment={evaluation.communication_strategies_comment}
-        />
-        <EvaluationCard
-          title="Vocabulary Patterns"
-          score={evaluation.vocabulary_patterns_score}
-          comment={evaluation.vocabulary_patterns_comment}
-        />
-        <EvaluationCard
-          title="Ideas & Organization"
-          score={evaluation.ideas_organization_score}
-          comment={evaluation.ideas_organization_comment}
-        />
-      </div>
+        {/* Transcript Section - Collapsible */}
+        {transcript && (
+          <motion.div
+            variants={itemVariants}
+            className="bg-white rounded-xl shadow-lg overflow-hidden mb-10"
+          >
+            <div className="p-6">
+              <button
+                onClick={() => setShowTranscript(!showTranscript)}
+                className="flex items-center justify-between w-full"
+              >
+                <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                  <span className="mr-2">📝</span> Session Transcript
+                </h2>
+                <svg
+                  className={`w-5 h-5 transition-transform ${
+                    showTranscript ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
 
-      {transcript && (
-        <div className="max-w-4xl w-full bg-white shadow p-8 rounded mt-10 mb-10">
-          <h2 className="text-xl font-semibold mb-4">📝 Session Transcript</h2>
-          <div className="bg-gray-50 p-4 rounded">
-            <p className="whitespace-pre-wrap">{transcript.content}</p>
-          </div>
+              {showTranscript && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-4"
+                >
+                  <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                    <p className="whitespace-pre-wrap text-gray-700">
+                      {transcript.content}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Button to return to dashboard */}
+        <div className="flex justify-center mt-6">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push("/dashboard")}
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-md font-medium"
+          >
+            Return to Dashboard
+          </motion.button>
         </div>
-      )}
+      </motion.div>
     </div>
   );
 }
@@ -221,14 +442,15 @@ export default function ResultsPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold mb-4 text-blue-600">
+        <div className="fixed inset-0 bg-[#f5f7fa] flex items-center justify-center">
+          <div className="text-center bg-white p-8 rounded-xl shadow-lg">
+            <div className="mx-auto mb-6 flex justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600 border-opacity-75"></div>
+            </div>
+            <h1 className="text-3xl font-bold mb-2 text-blue-600">
               Loading Results...
             </h1>
-            <div className="mt-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-opacity-50 mx-auto"></div>
-            </div>
+            <p className="text-gray-500">Your evaluation is being prepared</p>
           </div>
         </div>
       }
@@ -239,19 +461,55 @@ export default function ResultsPage() {
 }
 
 function EvaluationCard({
+  icon,
   title,
   score,
   comment,
 }: {
+  icon: string;
   title: string;
   score: number;
   comment: string;
 }) {
   return (
-    <div className="bg-white p-6 shadow rounded">
-      <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-2xl font-bold">{score}/7</p>
-      <p className="text-gray-600 italic mt-2">{comment}</p>
-    </div>
+    <motion.div
+      variants={itemVariants}
+      className="bg-white rounded-xl shadow-md overflow-hidden"
+    >
+      <div className="p-5">
+        <div className="flex items-start mb-3">
+          <span className="text-2xl mr-2">{icon}</span>
+          <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+        </div>
+
+        <div className="flex items-center mb-3">
+          <div className={`text-3xl font-bold ${getScoreColor(score)}`}>
+            {score}
+          </div>
+          <span className="text-gray-500 ml-1 text-lg">/7</span>
+
+          <div className="ml-4 flex-grow">
+            <div className="h-2 bg-gray-200 rounded-full">
+              <div
+                className={`h-2 rounded-full ${
+                  score >= 6
+                    ? "bg-green-500"
+                    : score >= 4
+                    ? "bg-blue-500"
+                    : score >= 2
+                    ? "bg-yellow-500"
+                    : "bg-red-500"
+                }`}
+                style={{ width: `${(score / 7) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-gray-600 italic text-sm bg-gray-50 p-3 rounded-lg">
+          {comment}
+        </p>
+      </div>
+    </motion.div>
   );
 }

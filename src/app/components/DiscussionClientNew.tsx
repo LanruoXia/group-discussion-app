@@ -592,11 +592,36 @@ function DiscussionClientContent() {
     };
   }, [recognition]);
 
+  // 禁用导航栏
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.innerHTML = `
+      nav, nav *, header, header * {
+        pointer-events: none !important;
+        opacity: 0.5 !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // 防止意外刷新页面
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // 清理函数
+    return () => {
+      document.head.removeChild(style);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+      <div className="fixed inset-0 bg-[#f5f7fa] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 mb-4"></div>
           <p className="text-gray-600">Joining discussion...</p>
         </div>
       </div>
@@ -605,12 +630,12 @@ function DiscussionClientContent() {
 
   if (error) {
     return (
-      <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+      <div className="fixed inset-0 bg-[#f5f7fa] flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
           <button
             onClick={() => router.replace("/")}
-            className="px-4 py-2 bg-blue-500 text-white rounded"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg"
           >
             Return to Home
           </button>
@@ -620,58 +645,37 @@ function DiscussionClientContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Discussion Room</h1>
+    <div className="min-h-screen bg-[#f5f7fa]">
+      <div className="max-w-7xl mx-auto px-4 py-2">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-3xl font-bold">Discussion Room</h1>
           {allReady ? (
-            <div className="mb-4 p-3 bg-green-100 text-green-800 rounded shadow text-center font-medium">
+            <div className="p-3 bg-green-100 text-green-800 rounded shadow text-center font-medium">
               ✅ All participants are ready. You may begin speaking.
             </div>
           ) : (
-            <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded shadow text-center font-medium">
+            <div className="p-3 bg-yellow-100 text-yellow-800 rounded shadow text-center font-medium">
               ⏳ Waiting for all participants to be ready...
             </div>
           )}
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleLeave}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-            >
-              Leave Discussion
-            </button>
-            {!transcribing ? (
-              <button
-                onClick={startCaptions}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Start Caption
-              </button>
-            ) : (
-              <button
-                onClick={stopCaptions}
-                className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-              >
-                Stop Caption
-              </button>
-            )}
-          </div>
+          {allReady && <CountdownDisplay timeLeft={timeLeft} />}
         </div>
-        {allReady && <CountdownDisplay timeLeft={timeLeft} />}
 
         {/* Participants list */}
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-2">Participants</h2>
-          <div className="flex flex-wrap gap-4">
+        <div className="flex items-center space-x-3 mb-3">
+          <h2 className="text-lg font-semibold whitespace-nowrap">
+            Participants
+          </h2>
+          <div className="flex flex-wrap gap-2">
             {participants.map((participant) => (
               <div
                 key={participant.user_id}
-                className="flex items-center bg-white rounded-lg p-3 shadow-sm"
+                className="flex items-center bg-white rounded-lg p-1.5 shadow-sm"
               >
                 {participant.is_ai ? (
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-1.5">
                     <svg
-                      className="w-5 h-5 text-blue-600"
+                      className="w-4 h-4 text-blue-600"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -685,9 +689,9 @@ function DiscussionClientContent() {
                     </svg>
                   </div>
                 ) : (
-                  <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mr-2">
+                  <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center mr-1.5">
                     <svg
-                      className="w-5 h-5 text-gray-600"
+                      className="w-4 h-4 text-gray-600"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -701,7 +705,7 @@ function DiscussionClientContent() {
                     </svg>
                   </div>
                 )}
-                <span className="text-gray-700">
+                <span className="text-gray-700 text-sm">
                   {participant.display_name}
                   {participant.is_ai && " (AI)"}
                   {participant.user_id === uid && " (You)"}
@@ -711,8 +715,8 @@ function DiscussionClientContent() {
           </div>
         </div>
 
-        {/* Video grid */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Video grid - 移动到更上方 */}
+        <div className="grid grid-cols-2 gap-3 mb-4 mt-1">
           {/* Local video */}
           <div className="aspect-video bg-gray-800 rounded-lg overflow-hidden relative">
             {localVideoTrack && (
@@ -793,40 +797,10 @@ function DiscussionClientContent() {
               </div>
             ))}
         </div>
-        <div>
-          {!recording ? (
-            <button
-              onClick={startRecording}
-              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-            >
-              🎙️ Start Test Recording
-            </button>
-          ) : (
-            <button
-              onClick={stopRecording}
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-            >
-              🛑 Stop & Transcribe
-            </button>
-          )}
-          <div className="bg-white rounded-lg p-4 shadow">
-            {segments.map((seg, index) => (
-              <div key={index} className="mb-2 text-sm">
-                <span className="text-blue-600 font-semibold">
-                  {seg.speaker}
-                </span>{" "}
-                <span className="text-gray-400">
-                  [{seg.start.toFixed(1)}s - {seg.end.toFixed(1)}s]
-                </span>
-                : <span className="text-gray-800">{seg.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* 字幕区域 */}
         {transcribing && (
-          <div className="mt-6">
+          <div className="mt-5">
             <h2 className="text-lg font-semibold mb-2">Live Captions</h2>
             <div
               ref={transcriptRef}
@@ -852,6 +826,25 @@ function DiscussionClientContent() {
             </div>
           </div>
         )}
+
+        {/* Caption Control Button - Fixed Position */}
+        <div className="fixed bottom-6 right-6">
+          {!transcribing ? (
+            <button
+              onClick={startCaptions}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition-colors"
+            >
+              Start Caption
+            </button>
+          ) : (
+            <button
+              onClick={stopCaptions}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-lg hover:bg-blue-600 transition-colors"
+            >
+              Stop Caption
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -862,10 +855,12 @@ export default function DiscussionClient() {
   return (
     <Suspense
       fallback={
-        <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600">Loading...</p>
+        <div className="fixed inset-0 bg-[#f5f7fa] flex items-center justify-center">
+          <div className="flex flex-col items-center">
+            <div className="w-16 h-16 border-t-4 border-blue-600 border-solid rounded-full animate-spin"></div>
+            <div className="mt-4 text-lg text-blue-600 font-medium">
+              Loading...
+            </div>
           </div>
         </div>
       }

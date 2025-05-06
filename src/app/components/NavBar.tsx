@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "../supabase";
+import { motion } from "framer-motion";
 
 interface UserState {
   id: string;
@@ -231,96 +232,148 @@ export default function NavBar() {
     );
   }, [pathname]);
 
+  // Determine if the current path matches a given navigation path
+  const isActivePath = (path: string): boolean => {
+    if (path === "/") {
+      return pathname === "/";
+    }
+    return pathname?.startsWith(path) || false;
+  };
+
   return (
-    <nav className="bg-blue-500 p-4 text-white flex justify-between items-center min-h-[64px]">
-      <div className="space-x-4">
-        <button
+    <motion.nav
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className="bg-[#f5f7fa] p-4 text-gray-800 flex justify-between items-center min-h-[64px] sticky top-0 z-50"
+    >
+      <div className="space-x-1 sm:space-x-4 flex flex-wrap">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => handleNavigation("/")}
-          className={`hover:underline text-white ${
-            isInWaitingRoom ? "opacity-50 cursor-not-allowed" : ""
+          className={`px-2 sm:px-3 py-1.5 rounded-lg transition duration-200 ${
+            isInWaitingRoom
+              ? "opacity-50 cursor-not-allowed"
+              : isActivePath("/")
+              ? "bg-white text-blue-600 font-medium"
+              : "hover:bg-indigo-100/80"
           }`}
           disabled={isInWaitingRoom}
         >
           Home
-        </button>
+        </motion.button>
         {authState.isAuthenticated && (
           <>
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => handleNavigation("/session/create")}
-              className={`hover:underline text-white ${
-                isInWaitingRoom ? "opacity-50 cursor-not-allowed" : ""
+              className={`px-2 sm:px-3 py-1.5 rounded-lg transition duration-200 ${
+                isInWaitingRoom
+                  ? "opacity-50 cursor-not-allowed"
+                  : isActivePath("/session/create")
+                  ? "bg-white text-blue-600 font-medium"
+                  : "hover:bg-indigo-100/80"
               }`}
               disabled={isInWaitingRoom}
             >
               Create Session
-            </button>
-            <button
-              onClick={() => handleNavigation("/evaluate")}
-              className={`hover:underline text-white ${
-                isInWaitingRoom ? "opacity-50 cursor-not-allowed" : ""
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleNavigation("/session/join")}
+              className={`px-2 sm:px-3 py-1.5 rounded-lg transition duration-200 ${
+                isInWaitingRoom
+                  ? "opacity-50 cursor-not-allowed"
+                  : isActivePath("/session/join")
+                  ? "bg-white text-blue-600 font-medium"
+                  : "hover:bg-indigo-100/80"
               }`}
               disabled={isInWaitingRoom}
             >
-              Evaluate
-            </button>
-            <button
-              onClick={() => handleNavigation("/results")}
-              className={`hover:underline text-white ${
-                isInWaitingRoom ? "opacity-50 cursor-not-allowed" : ""
+              Join Session
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleNavigation("/dashboard")}
+              className={`px-2 sm:px-3 py-1.5 rounded-lg transition duration-200 ${
+                isInWaitingRoom
+                  ? "opacity-50 cursor-not-allowed"
+                  : isActivePath("/dashboard")
+                  ? "bg-white text-blue-600 font-medium"
+                  : "hover:bg-indigo-100/80"
               }`}
               disabled={isInWaitingRoom}
             >
               Results
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => handleNavigation("/profile")}
-              className={`hover:underline text-white ${
-                isInWaitingRoom ? "opacity-50 cursor-not-allowed" : ""
+              className={`px-2 sm:px-3 py-1.5 rounded-lg transition duration-200 ${
+                isInWaitingRoom
+                  ? "opacity-50 cursor-not-allowed"
+                  : isActivePath("/profile")
+                  ? "bg-white text-blue-600 font-medium"
+                  : "hover:bg-indigo-100/80"
               }`}
               disabled={isInWaitingRoom}
             >
               Profile
-            </button>
+            </motion.button>
           </>
         )}
       </div>
 
-      <div className="flex items-center space-x-4 min-w-[120px] justify-end">
+      <div className="flex items-center space-x-3 min-w-[120px] justify-end pr-10">
         {authState.isLoading ? (
-          <span className="opacity-0">Loading...</span>
+          <div className="h-4 w-4 border-t-2 border-r-2 border-white rounded-full animate-spin"></div>
         ) : authState.isAuthenticated ? (
           <>
-            <div className="text-sm min-w-[150px]">
-              <span className="font-medium">
-                👤 {authState.user?.name || authState.user?.email.split("@")[0]}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-sm flex items-center bg-indigo-100 px-3 py-1.5 rounded-full mr-2"
+            >
+              <span className="font-medium flex items-center">
+                <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                {authState.user?.name || authState.user?.email.split("@")[0]}
               </span>
               {authState.user?.school && authState.user?.grade && (
-                <span className="ml-2 text-blue-100">
+                <span className="ml-2 text-indigo-500 hidden sm:inline-block">
                   {authState.user.school} • {authState.user.grade}
                 </span>
               )}
-            </div>
-            <button
+            </motion.div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={handleLogout}
               disabled={authState.isLoading || isInWaitingRoom}
-              className={`px-4 py-2 rounded bg-white text-blue-500 hover:bg-blue-100 transition-colors min-w-[100px] ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg hover:bg-indigo-100/80 transition-colors border-b border-transparent hover:border-blue-300 ${
                 authState.isLoading || isInWaitingRoom
                   ? "opacity-50 cursor-not-allowed"
                   : ""
               }`}
             >
               Logout
-            </button>
+            </motion.button>
           </>
         ) : (
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleLogin}
-            className="px-4 py-2 rounded bg-white text-blue-500 hover:bg-blue-100 transition-colors"
+            className="px-4 py-1.5 rounded-lg bg-white text-blue-600 hover:bg-indigo-50 transition-colors shadow-sm font-medium"
           >
             Login
-          </button>
+          </motion.button>
         )}
       </div>
-    </nav>
+    </motion.nav>
   );
 }

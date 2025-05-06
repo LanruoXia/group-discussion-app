@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../supabase";
+import { motion } from "framer-motion";
 
 type Participant = {
   id: string;
@@ -376,140 +377,324 @@ function WaitingRoomContent() {
 
   if (error || isExpired) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md w-full">
-          <div className="text-red-600 text-xl mb-4">
-            {isExpired ? "Session has expired" : error}
+      <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="text-center p-8 bg-white rounded-xl shadow-lg max-w-md w-full"
+        >
+          <div className="flex items-center justify-center mb-6 text-red-500">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="w-16 h-16"
+            >
+              <path
+                fillRule="evenodd"
+                d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
+                clipRule="evenodd"
+              />
+            </svg>
           </div>
-          <div className="text-gray-600 mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.3 }}
+            className="text-red-600 text-xl font-semibold mb-4"
+          >
+            {isExpired ? "Session has expired" : error}
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.3 }}
+            className="text-gray-600 mb-6"
+          >
             {isExpired
               ? "Please create a new session or join another one."
-              : ""}
-          </div>
-          <div className="space-x-4">
-            <button
+              : "There was a problem with the session."}
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.3 }}
+            className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4"
+          >
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => router.push("/session/create")}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium rounded-xl shadow-md transition-colors duration-200"
             >
               Create New Session
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => router.push("/")}
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+              className="px-5 py-2.5 bg-white text-blue-600 border border-blue-600 hover:bg-blue-50 rounded-xl font-medium shadow-md transition-colors duration-200"
             >
               Back to Home
-            </button>
-          </div>
-        </div>
+            </motion.button>
+          </motion.div>
+        </motion.div>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen bg-[#f5f7fa]">
+        <div className="flex flex-col items-center">
+          <div className="w-16 h-16 border-t-4 border-blue-600 border-solid rounded-full animate-spin"></div>
+          <div className="mt-4 text-lg text-blue-600 font-medium">
+            Loading waiting room...
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
-      <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
-            Waiting Room
-          </h1>
-
-          {/* Countdown display */}
-          <div className="mb-4 text-center">
-            {isStarting ? (
-              <div className="text-2xl font-bold text-green-600">
-                All participants have joined!
-                <br />
-                Session will start in {countdownSeconds} seconds...
-              </div>
-            ) : timeRemaining !== null ? (
-              <div
-                className={`text-xl font-bold ${
-                  timeRemaining < 60 ? "text-red-600" : "text-blue-600"
-                }`}
-              >
-                Waiting for participants...
-                <br />
-                Time remaining: {Math.floor(timeRemaining / 60)}:
-                {(timeRemaining % 60).toString().padStart(2, "0")}
-                {timeRemaining < 60 && (
-                  <div className="text-sm mt-2">
-                    Session will expire if not enough participants join!
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          {/* Discussion topic */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-2 text-gray-700">
-              Discussion Topic
-            </h2>
-            <p className="text-lg text-gray-600">{sessionStatus?.test_topic}</p>
-          </div>
-
-          {/* Instructions */}
-          {sessionStatus?.instructions && (
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-2 text-gray-700">
-                Instructions
-              </h2>
-              <p className="text-gray-600 whitespace-pre-wrap">
-                {sessionStatus.instructions}
-              </p>
-            </div>
-          )}
-
-          {/* Participants list */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-2 text-gray-700">
-              Participants ({participants.length})
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {participants.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center p-3 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex-1">
-                    <span className="font-medium text-gray-800">{p.name}</span>
-                    {p.is_ai && (
-                      <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                        AI
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {formatDateTime(p.created_at)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Session information */}
-          <div className="text-center text-sm text-gray-500">
-            Session Code: {code}
-            <br />
-            Created at {formatDateTime(sessionStatus?.created_at || "")}
-            <br />
-            <button
-              onClick={handleLeave}
-              className="mt-2 text-gray-500 hover:text-red-500 transition-colors"
+    <div className="min-h-screen bg-[#f5f7fa] py-10 px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-2xl mx-auto"
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="bg-white shadow-lg rounded-xl overflow-hidden"
+        >
+          <div className="p-8">
+            <motion.h1
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="text-3xl font-bold mb-6 text-center text-gray-800"
             >
-              Leave Session
-            </button>
+              Waiting Room
+            </motion.h1>
+
+            {/* Countdown display */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+              className="mb-8 text-center"
+            >
+              {isStarting ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-6 my-4">
+                  <div className="text-2xl font-bold text-green-600 mb-2">
+                    All participants have joined!
+                  </div>
+                  <div className="text-xl">
+                    Session will start in{" "}
+                    <span className="font-bold">{countdownSeconds}</span>{" "}
+                    seconds...
+                  </div>
+                  <motion.div
+                    className="w-full bg-gray-200 h-2 mt-4 rounded-full overflow-hidden"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    <motion.div
+                      className="bg-green-500 h-full"
+                      initial={{ width: "100%" }}
+                      animate={{ width: "0%" }}
+                      transition={{ duration: 10, ease: "linear" }}
+                    ></motion.div>
+                  </motion.div>
+                </div>
+              ) : timeRemaining !== null ? (
+                <div
+                  className={`bg-blue-50 border ${
+                    timeRemaining < 60 ? "border-red-200" : "border-blue-200"
+                  } rounded-lg p-6 my-4`}
+                >
+                  <div
+                    className={`text-xl font-bold ${
+                      timeRemaining < 60 ? "text-red-600" : "text-blue-600"
+                    } mb-2`}
+                  >
+                    Waiting for participants...
+                  </div>
+                  <div className="flex justify-center items-center mt-2">
+                    <div className="text-3xl font-mono bg-white py-2 px-4 rounded-lg shadow">
+                      {Math.floor(timeRemaining / 60)}:
+                      {(timeRemaining % 60).toString().padStart(2, "0")}
+                    </div>
+                  </div>
+                  {timeRemaining < 60 && (
+                    <div className="text-sm mt-4 text-red-600 flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 mr-1"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      Session will expire if not enough participants join!
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </motion.div>
+
+            {/* Discussion topic */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+              className="mb-8"
+            >
+              <div className="flex items-center mb-3">
+                <span className="text-blue-600 mr-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-6 h-6"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4.848 2.771A49.144 49.144 0 0112 2.25c2.43 0 4.817.178 7.152.52 1.978.292 3.348 2.024 3.348 3.97v6.02c0 1.946-1.37 3.678-3.348 3.97a48.901 48.901 0 01-3.476.383.39.39 0 00-.297.17l-2.755 4.133a.75.75 0 01-1.248 0l-2.755-4.133a.39.39 0 00-.297-.17 48.9 48.9 0 01-3.476-.384c-1.978-.29-3.348-2.024-3.348-3.97V6.741c0-1.946 1.37-3.68 3.348-3.97zM6.75 8.25a.75.75 0 01.75-.75h9a.75.75 0 010 1.5h-9a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h9a.75.75 0 000-1.5h-9z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </span>
+                <h2 className="text-xl font-semibold text-gray-700">
+                  Discussion Topic
+                </h2>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                <p className="text-lg text-gray-800">
+                  {sessionStatus?.test_topic}
+                </p>
+              </div>
+            </motion.div>
+
+            {/* Participants list */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.5 }}
+              className="mb-8"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <span className="text-blue-600 mr-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="w-6 h-6"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8.25 6.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM15.75 9.75a3 3 0 116 0 3 3 0 01-6 0zM2.25 9.75a3 3 0 116 0 3 3 0 01-6 0zM6.31 15.117A6.745 6.745 0 0112 12a6.745 6.745 0 016.709 7.498.75.75 0 01-.372.568A12.696 12.696 0 0112 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 01-.372-.568 6.787 6.787 0 011.019-4.38z"
+                        clipRule="evenodd"
+                      />
+                      <path d="M5.082 14.254a8.287 8.287 0 00-1.308 5.135 9.687 9.687 0 01-1.764-.44l-.115-.04a.563.563 0 01-.373-.487l-.01-.121a3.75 3.75 0 013.57-4.047zM20.226 19.389a8.287 8.287 0 00-1.308-5.135 3.75 3.75 0 013.57 4.047l-.01.121a.563.563 0 01-.373.486l-.115.04c-.567.2-1.156.349-1.764.441z" />
+                    </svg>
+                  </span>
+                  <h2 className="text-xl font-semibold text-gray-700">
+                    Participants
+                  </h2>
+                </div>
+                <span className="bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
+                  {participants.length}/4
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {participants.map((p, index) => (
+                  <motion.div
+                    key={p.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 * index + 0.7, duration: 0.3 }}
+                    className="flex items-center p-4 bg-white border border-gray-200 rounded-lg shadow-sm"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-800">{p.name}</div>
+                      {p.is_ai && (
+                        <span className="inline-flex items-center mt-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3 w-3 mr-1"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          AI
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Session information */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7, duration: 0.5 }}
+              className="text-center mt-10 border-t border-gray-200 pt-6"
+            >
+              <div className="flex justify-center items-center mb-4">
+                <div className="bg-blue-50 px-4 py-2 rounded-lg flex items-center">
+                  <span className="text-blue-600 mr-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </span>
+                  <span className="font-medium">Session Code: </span>
+                  <span className="ml-1 font-mono bg-white px-2 py-1 rounded">
+                    {code}
+                  </span>
+                </div>
+              </div>
+              <div className="text-sm text-gray-500 mb-6">
+                Created at {formatDateTime(sessionStatus?.created_at || "")}
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleLeave}
+                className="text-xs text-gray-400 hover:text-red-500 underline transition-colors"
+              >
+                Leave Session
+              </motion.button>
+            </motion.div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
@@ -519,10 +704,12 @@ export default function WaitingRoomPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen bg-gray-50">
-          <div className="text-center">
-            <div className="animate-spin inline-block rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
-            <p>Loading waiting room...</p>
+        <div className="flex items-center justify-center min-h-screen bg-[#f5f7fa]">
+          <div className="flex flex-col items-center">
+            <div className="w-16 h-16 border-t-4 border-blue-600 border-solid rounded-full animate-spin"></div>
+            <div className="mt-4 text-lg text-blue-600 font-medium">
+              Loading waiting room...
+            </div>
           </div>
         </div>
       }
