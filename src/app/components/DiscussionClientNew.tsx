@@ -99,14 +99,6 @@ function DiscussionClientContent() {
   const [recognition, setRecognition] =
     useState<SpeechRecognitionInstance | null>(null);
   const [captions, setCaptions] = useState<CaptionEntry[]>([]);
-  const [segments, setSegments] = useState<
-    {
-      start: number;
-      end: number;
-      text: string;
-      speaker: string;
-    }[]
-  >([]);
 
   // Initialize Agora client
   const {
@@ -130,7 +122,6 @@ function DiscussionClientContent() {
 
       const result = await res.json();
       if (result.transcript) {
-        setSegments(result.transcript); // ✅ 保存 transcript
         console.log("📝 Transcribed:", result.transcript);
       }
       if (!startTime) {

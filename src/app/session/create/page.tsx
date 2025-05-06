@@ -376,7 +376,7 @@ export default function CreateSessionPage() {
           transition={{ delay: 0.6, duration: 0.5 }}
           className="mt-8 text-center text-gray-600"
         >
-          After creating a session, you'll receive a code to share with
+          After creating a session, you&apos;ll receive a code to share with
           participants
         </motion.div>
       </motion.div>

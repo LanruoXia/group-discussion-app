@@ -218,7 +218,8 @@ function DashboardContent() {
             <div className="text-gray-600 mb-6">
               <p className="text-xl font-medium mb-4">No sessions found</p>
               <p>
-                You haven't participated in any group interaction sessions yet.
+                You haven&apos;t participated in any group interaction sessions
+                yet.
               </p>
             </div>
             <motion.button
