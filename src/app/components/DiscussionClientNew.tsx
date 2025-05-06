@@ -219,6 +219,7 @@ function DiscussionClientContent() {
       user_id: string;
       display_name: string;
       is_ai: boolean;
+      agora_uid?: string;
     }>
   >([]);
 
@@ -439,7 +440,7 @@ function DiscussionClientContent() {
 
       const { data, error } = await supabase
         .from("participants")
-        .select("user_id, is_ai")
+        .select("user_id, agora_uid, is_ai")
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
 
@@ -496,10 +497,9 @@ function DiscussionClientContent() {
       return;
 
     const realUsers = participants.filter((p) => !p.is_ai);
-    const allRealUsers = realUsers.map((p) => p.user_id);
-
+    const allRealUsers = realUsers.map((p) => String(p.agora_uid));
     const currentRemoteRealUsers = remoteUsers
-      .map((u) => String(u.uid)) // 🔁 转换为 string
+      .map((u) => String(u.uid))
       .filter((remoteUid) => allRealUsers.includes(remoteUid));
 
     const hasAllRemote =
@@ -750,8 +750,9 @@ function DiscussionClientContent() {
                 />
               )}
               <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
-                {participants.find((p) => p.user_id === user.uid)
-                  ?.display_name || "Unknown"}
+                {participants.find(
+                  (p) => String(p.agora_uid) === String(user.uid)
+                )?.display_name || "Unknown"}
                 {!user.videoTrack && " (Video Off)"}
               </div>
             </div>
