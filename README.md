@@ -1,4 +1,4 @@
-# HKDSE English Group Interaction Practice Platform
+# HKDSE English Group Interaction Practice Platform with AI-Powered Feedback
 
 A full-stack web application for practicing English speaking skills, specifically designed for HKDSE students. The platform features real-time video discussions, AI-powered speech recognition, and automated evaluation.
 
