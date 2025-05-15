@@ -23,13 +23,13 @@ export async function POST(req: NextRequest) {
       .eq("user_id", user_id);
 
     if (updateError) {
-      console.error("❌ Failed to update participant ready:", updateError);
+      console.error("Failed to update participant ready:", updateError);
       return NextResponse.json({ error: "Failed to update ready" }, { status: 500 });
     }
 
     return NextResponse.json({ message: "Participant marked as ready" });
   } catch (error) {
-    console.error("❌ Internal error in mark-ready:", error);
+    console.error("Internal error in mark-ready:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

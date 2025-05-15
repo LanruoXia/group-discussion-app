@@ -13,5 +13,5 @@ fetch("https://group-discussion-app-new.vercel.app/api/webhook/merge-transcript"
   body: JSON.stringify(payload),
 })
   .then((res) => res.json())
-  .then((data) => console.log("✅ Response:", data))
-  .catch((err) => console.error("❌ Error:", err));
+  .then((data) => console.log("Response:", data))
+  .catch((err) => console.error("Error:", err));

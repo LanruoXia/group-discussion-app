@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "../supabase";
 import { motion } from "framer-motion";
 
+// User profile type definition
 interface UserState {
   id: string;
   email: string;
@@ -15,6 +16,7 @@ interface UserState {
 }
 
 export default function NavBar() {
+  // Auth state: user info, loading, and authentication status
   const [authState, setAuthState] = useState<{
     user: UserState | null;
     isLoading: boolean;
@@ -28,8 +30,9 @@ export default function NavBar() {
   const router = useRouter();
   const pathname = usePathname();
   const [isInWaitingRoom, setIsInWaitingRoom] = useState(false);
+  const [isInSession, setIsInSession] = useState(false);
 
-  // Function to fetch user profile
+  // Fetch user profile from Supabase
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data: profile, error } = await supabase
@@ -46,26 +49,23 @@ export default function NavBar() {
     }
   };
 
+  // Redirect to login page
   const handleLogin = () => {
     router.replace("/auth");
   };
 
+  // Clear all Supabase-related data from localStorage, sessionStorage, and cookies
   const clearSupabaseData = () => {
-    // Clear all localStorage items that start with 'sb-'
     Object.keys(localStorage).forEach((key) => {
       if (key.startsWith("sb-")) {
         localStorage.removeItem(key);
       }
     });
-
-    // Clear all sessionStorage items that start with 'sb-'
     Object.keys(sessionStorage).forEach((key) => {
       if (key.startsWith("sb-")) {
         sessionStorage.removeItem(key);
       }
     });
-
-    // Clear cookies
     document.cookie.split(";").forEach((cookie) => {
       const name = cookie.split("=")[0].trim();
       if (name.startsWith("sb-")) {
@@ -74,6 +74,7 @@ export default function NavBar() {
     });
   };
 
+  // Handle user logout
   const handleLogout = async () => {
     try {
       setAuthState((prev) => ({ ...prev, isLoading: true }));
@@ -82,39 +83,47 @@ export default function NavBar() {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
-      // Clear local state
+      // Clear local state and storage
       setAuthState({
         user: null,
         isLoading: false,
         isAuthenticated: false,
       });
-
-      // Clear all Supabase related storage
       clearSupabaseData();
 
-      // Force a complete page reload with cache busting
+      // Force reload to login page
       const timestamp = new Date().getTime();
       window.location.replace(`/auth?t=${timestamp}`);
     } catch (error) {
       console.error("Error during logout:", error);
       setAuthState((prev) => ({ ...prev, isLoading: false }));
-      // Try to clear data even if logout fails
       clearSupabaseData();
     }
   };
 
+  // Handle navigation with authentication and waiting room checks
   const handleNavigation = async (path: string) => {
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
-      // 如果在等待室，禁止导航
+      // 如果在会话中，只允许访问当前会话页面
+      if (isInSession) {
+        const currentSessionPath = pathname?.split("/").slice(0, 5).join("/");
+        if (path !== currentSessionPath) {
+          // 可以添加一个提示
+          console.log("Cannot leave the session while it's in progress");
+          return;
+        }
+      }
+
+      // Block navigation if in waiting room (except to waiting room itself)
       if (isInWaitingRoom && path !== "/session/join/waiting-room") {
         return;
       }
 
-      // 未登录用户只能访问 auth 页面
+      // Unauthenticated users can only access auth page
       if (!session) {
         if (path !== "/auth") {
           router.replace("/auth");
@@ -122,13 +131,13 @@ export default function NavBar() {
         return;
       }
 
-      // 已登录用户不能访问 auth 页面
+      // Authenticated users cannot access auth page
       if (session && path === "/auth") {
         router.replace("/");
         return;
       }
 
-      // 其他情况正常导航
+      // Normal navigation
       router.replace(path);
     } catch (error) {
       console.error("Navigation error:", error);
@@ -136,6 +145,7 @@ export default function NavBar() {
     }
   };
 
+  // Initialize authentication state and listen for changes
   useEffect(() => {
     let mounted = true;
 
@@ -156,6 +166,7 @@ export default function NavBar() {
           return;
         }
 
+        // Fetch user profile from database
         const profile = await fetchUserProfile(session.user.id);
 
         if (!mounted) return;
@@ -186,7 +197,7 @@ export default function NavBar() {
       }
     };
 
-    // Initialize auth immediately
+    // Initial authentication check
     initializeAuth();
 
     // Listen for profile updates
@@ -195,9 +206,9 @@ export default function NavBar() {
         initializeAuth();
       }
     };
-
     window.addEventListener("profile-updated", handleStorageChange);
 
+    // Listen for Supabase auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event) => {
@@ -225,14 +236,24 @@ export default function NavBar() {
     };
   }, [router]);
 
-  // 使用 pathname 来检测等待室状态
+  // Detect if user is in the waiting room based on pathname
   useEffect(() => {
-    setIsInWaitingRoom(
-      pathname?.includes("/session/join/waiting-room") || false
+    setIsInWaitingRoom(pathname?.includes("/session/waiting-room") || false);
+  }, [pathname]);
+
+  // Detect if user is in a session based on pathname
+  useEffect(() => {
+    // 检查是否在会话相关页面
+    setIsInSession(
+      pathname?.includes("/session/waiting-room") ||
+        pathname?.includes("/session/join/preparation") ||
+        pathname?.includes("/session/join/discussion-room") ||
+        pathname?.includes("/session/join/analyzing-result") || // 添加 analyzing result 检测
+        false
     );
   }, [pathname]);
 
-  // Determine if the current path matches a given navigation path
+  // Check if the current path is active for navigation highlighting
   const isActivePath = (path: string): boolean => {
     if (path === "/") {
       return pathname === "/";
@@ -247,6 +268,7 @@ export default function NavBar() {
       transition={{ duration: 0.3 }}
       className="bg-[#f5f7fa] p-4 text-gray-800 flex justify-between items-center min-h-[64px] sticky top-0 z-50"
     >
+      {/* Navigation buttons */}
       <div className="space-x-1 sm:space-x-4 flex flex-wrap">
         <motion.button
           whileHover={{ scale: 1.05 }}
@@ -329,6 +351,7 @@ export default function NavBar() {
         )}
       </div>
 
+      {/* User info and login/logout button */}
       <div className="flex items-center space-x-3 min-w-[120px] justify-end pr-10">
         {authState.isLoading ? (
           <div className="h-4 w-4 border-t-2 border-r-2 border-white rounded-full animate-spin"></div>

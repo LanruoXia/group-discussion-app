@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
     const authorization = Buffer.from(`${customerId}:${customerSecret}`).toString("base64");
 
-    // ✅ 构造 Agora 请求
+    // ✅ Construct Agora request
     const response = await fetch(
       `https://api.agora.io/v1/projects/${appId}/rtsc/speech-to-text/tasks?builderToken=${builderToken}`,
       {
@@ -51,14 +51,14 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("❌ Failed to start transcription:", data);
+      console.error("Failed to start transcription:", data);
       return NextResponse.json(
         { error: "Failed to start transcription", details: data },
         { status: 500 }
       );
     }
 
-    console.log("✅ Transcription started:", data);
+    console.log("Transcription started:", data);
 
     return NextResponse.json({
       success: true,
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       status: data.status,
     });
   } catch (err) {
-    console.error("❌ Unexpected error in /transcription/start:", err);
+    console.error("Unexpected error in /transcription/start:", err);
     return NextResponse.json({ error: "Unexpected error", details: err }, { status: 500 });
   }
 }

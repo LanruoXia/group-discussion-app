@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ transcript });
   } catch (error) {
-    console.error("❌ Whisper STT error:", error);
+    console.error(" Whisper STT error:", error);
     return NextResponse.json(
       { error: "Failed to transcribe audio" },
       { status: 500 }

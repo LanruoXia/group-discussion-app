@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "../supabase";
+import { supabase } from "../../supabase";
 import { motion } from "framer-motion";
 
 type Evaluation = {
@@ -427,7 +427,11 @@ function ResultsContent() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => router.push("/dashboard")}
+            onClick={() =>
+              router.push(
+                `/dashboard/results?user_id=${userId}&session_id=${sessionId}`
+              )
+            }
             className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-md font-medium"
           >
             Return to Dashboard

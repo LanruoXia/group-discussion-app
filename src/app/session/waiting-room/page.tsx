@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "../../../supabase";
+import { supabase } from "../../supabase";
 import { motion } from "framer-motion";
 
 type Participant = {

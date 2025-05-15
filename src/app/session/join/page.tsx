@@ -6,7 +6,7 @@ import { supabase } from "../../supabase";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
-// 包装组件
+// Wrapper component with Suspense for loading state
 function JoinPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -128,7 +128,7 @@ function JoinPageContent() {
       }
 
       // 7. 成功加入，跳转到waiting room
-      router.push(`/session/join/waiting-room?code=${code}`);
+      router.push(`/session/waiting-room?code=${code}`);
     } catch (err) {
       console.error("Error joining session:", err);
       setError("An unexpected error occurred.");
@@ -335,7 +335,7 @@ function JoinPageContent() {
   );
 }
 
-// 主组件
+// Main component with Suspense wrapper
 export default function JoinPage() {
   return (
     <Suspense

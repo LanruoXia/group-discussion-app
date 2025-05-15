@@ -79,7 +79,7 @@ export default function CreateSessionPage() {
     }
 
     setCreating(true);
-    console.log("📤 Creating session:", {
+    console.log("Creating session:", {
       creator: name,
       user_id: userId,
       aiCount,

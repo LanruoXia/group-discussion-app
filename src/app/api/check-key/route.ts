@@ -15,12 +15,12 @@ export async function GET() {
     const content = response.choices?.[0]?.message?.content ?? "";
 
     if (content.includes("API Key is working")) {
-      return new Response(JSON.stringify({ message: "✅ API Key is working!" }), { status: 200 });
+      return new Response(JSON.stringify({ message: "API Key is working!" }), { status: 200 });
     } else {
-      return new Response(JSON.stringify({ message: "❌ API Key test failed." }), { status: 500 });
+      return new Response(JSON.stringify({ message: "API Key test failed." }), { status: 500 });
     }
   } catch (error) {
     console.error("OpenAI API Error:", error);
-    return new Response(JSON.stringify({ message: "❌ Error connecting to OpenAI API." }), { status: 500 });
+    return new Response(JSON.stringify({ message: "Error connecting to OpenAI API." }), { status: 500 });
   }
 }

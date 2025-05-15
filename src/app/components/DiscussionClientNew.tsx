@@ -115,7 +115,7 @@ function DiscussionClientContent() {
       formData.append("audio", blob, "audio.webm");
       formData.append("speaker", displayName || "Unknown");
 
-      const res = await fetch("/api/whisper-stt", {
+      const res = await fetch("/api/whisper-transcript/stt", {
         method: "POST",
         body: formData,
       });

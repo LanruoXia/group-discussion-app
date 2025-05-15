@@ -1,8 +1,8 @@
-// ✅ src/app/api/agora/transcription/builder-token/route.ts
+// src/app/api/agora/transcription/builder-token/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { instanceId } = await req.json(); // 通常使用频道名作为唯一 ID
+  const { instanceId } = await req.json();
 
   if (!instanceId) {
     return NextResponse.json({ error: "Missing instanceId" }, { status: 400 });
@@ -28,11 +28,11 @@ export async function POST(req: NextRequest) {
   const data = await response.json();
 
   if (!response.ok) {
-    console.error("❌ Failed to get builderToken:", data);
+    console.error("Failed to get builderToken:", data);
     return NextResponse.json({ error: "Failed to get builderToken", details: data }, { status: 500 });
   }
 
-  console.log("✅ builderToken acquired:", data);
+  console.log("builderToken acquired:", data);
 
   return NextResponse.json({
     builderToken: data.tokenName,

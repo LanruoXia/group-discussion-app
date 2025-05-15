@@ -5,45 +5,260 @@ import { useRouter } from "next/navigation";
 import { supabase } from "./supabase";
 import { motion } from "framer-motion";
 
+// User profile interface defining the structure of user data
+interface UserState {
+  id: string;
+  email: string;
+  name: string | null;
+  username: string | null;
+  school: string | null;
+  grade: string | null;
+}
+
 export default function Home() {
-  const [name, setName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Authentication state management
+  // Tracks user info, loading state, and authentication status
+  const [authState, setAuthState] = useState<{
+    user: UserState | null;
+    isLoading: boolean;
+    isAuthenticated: boolean;
+  }>({
+    user: null,
+    isLoading: true,
+    isAuthenticated: false,
+  });
+
   const router = useRouter();
 
+  // Fetches user profile data from Supabase database
+  // Returns null if profile fetch fails
+  const fetchUserProfile = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/auth");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("id", session.user.id)
+        .single();
+
+      setAuthState((prev) => ({
+        ...prev,
+        user: {
+          id: session.user.id,
+          email: session.user.email || "",
+          name: profile?.name || session.user.email?.split("@")[0] || null,
+          username: null,
+          school: null,
+          grade: null,
+        },
+        isLoading: false,
+        isAuthenticated: true,
+      }));
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      setAuthState((prev) => ({
+        ...prev,
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+      }));
+    }
+  };
+
+  // Cleans up all Supabase-related data from browser storage
+  // Removes items from localStorage, sessionStorage, and cookies
+  const clearSupabaseData = () => {
+    // Clear localStorage items
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("sb-")) {
+        localStorage.removeItem(key);
+      }
+    });
+    // Clear sessionStorage items
+    Object.keys(sessionStorage).forEach((key) => {
+      if (key.startsWith("sb-")) {
+        sessionStorage.removeItem(key);
+      }
+    });
+    // Clear cookies
+    document.cookie.split(";").forEach((cookie) => {
+      const name = cookie.split("=")[0].trim();
+      if (name.startsWith("sb-")) {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+      }
+    });
+  };
+
+  // Handles user logout process
+  // Signs out from Supabase, clears local state and storage, redirects to auth page
+  const handleLogout = async () => {
+    try {
+      setAuthState((prev) => ({ ...prev, isLoading: true }));
+
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // Reset auth state and clear storage
+      setAuthState({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
+      clearSupabaseData();
+
+      // Force page reload to clear any cached state
+      const timestamp = new Date().getTime();
+      window.location.replace(`/auth?t=${timestamp}`);
+    } catch (error) {
+      console.error("Error during logout:", error);
+      setAuthState((prev) => ({ ...prev, isLoading: false }));
+      clearSupabaseData();
+    }
+  };
+
+  // Handles navigation with authentication and waiting room checks
+  // Prevents unauthorized access and manages navigation restrictions
+  const handleNavigation = async (path: string) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      // Block navigation if in waiting room (except to waiting room itself)
+      if (path === "/session/join/waiting-room") {
+        return;
+      }
+
+      // Redirect unauthenticated users to auth page
+      if (!session) {
+        if (path !== "/auth") {
+          router.replace("/auth");
+        }
+        return;
+      }
+
+      // Prevent authenticated users from accessing auth page
+      if (session && path === "/auth") {
+        router.replace("/");
+        return;
+      }
+
+      // Proceed with normal navigation
+      router.replace(path);
+    } catch (error) {
+      console.error("Navigation error:", error);
+      router.replace("/auth");
+    }
+  };
+
+  // Main authentication initialization and state management
+  // Handles initial auth check, profile updates, and auth state changes
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        if (!session) {
-          router.push("/auth");
+
+        if (!mounted) return;
+
+        // Handle unauthenticated state
+        if (!session?.user) {
+          setAuthState((prev) => ({
+            ...prev,
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+          }));
           return;
         }
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("name")
-          .eq("id", session.user.id)
-          .single();
+        // Fetch and set user profile data
+        await fetchUserProfile();
 
-        setName(profile?.name || session.user.email?.split("@")[0] || null);
+        if (!mounted) return;
+
+        const userInfo: UserState = {
+          id: session.user.id,
+          email: session.user.email || "",
+          name: authState.user?.name || null,
+          username: null,
+          school: null,
+          grade: null,
+        };
+
+        setAuthState((prev) => ({
+          ...prev,
+          user: userInfo,
+          isLoading: false,
+          isAuthenticated: true,
+        }));
       } catch (error) {
-        console.error("Error fetching profile:", error);
-        setName(null);
-      } finally {
-        setLoading(false);
+        console.error("Error initializing auth:", error);
+        if (mounted) {
+          setAuthState((prev) => ({
+            ...prev,
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+          }));
+        }
       }
     };
 
-    fetchUserProfile();
-    const handleStorageChange = () => fetchUserProfile();
-    window.addEventListener("profile-updated", handleStorageChange);
-    return () =>
-      window.removeEventListener("profile-updated", handleStorageChange);
-  }, [router]);
+    // Initial auth check
+    initializeAuth();
 
-  if (loading) {
+    // Listen for profile updates
+    const handleStorageChange = () => {
+      if (mounted) {
+        initializeAuth();
+      }
+    };
+    window.addEventListener("profile-updated", handleStorageChange);
+
+    // Subscribe to Supabase auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event) => {
+      if (!mounted) return;
+
+      // Handle sign out event
+      if (event === "SIGNED_OUT") {
+        setAuthState((prev) => ({
+          ...prev,
+          user: null,
+          isLoading: false,
+          isAuthenticated: false,
+        }));
+        clearSupabaseData();
+        router.replace("/auth");
+        return;
+      }
+
+      // Re-initialize auth state for other events
+      initializeAuth();
+    });
+
+    // Cleanup function
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+      window.removeEventListener("profile-updated", handleStorageChange);
+    };
+  }, [router, authState.user?.name]);
+
+  if (authState.isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#f5f7fa]">
         <div className="flex flex-col items-center">
@@ -98,7 +313,7 @@ export default function Home() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="text-2xl text-gray-500 max-w-md font-bold"
         >
-          <span>Hi, {name} </span>
+          <span>Hi, {authState.user?.name} </span>
         </motion.h2>
 
         <motion.h2
@@ -133,7 +348,7 @@ export default function Home() {
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => router.push("/session/join")}
+            onClick={() => handleNavigation("/session/join")}
             className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-50 px-6 py-3 rounded-xl font-medium shadow-md transition duration-200"
           >
             Join with a Session Code
@@ -141,7 +356,7 @@ export default function Home() {
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => router.push("/session/create")}
+            onClick={() => handleNavigation("/session/create")}
             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl font-medium shadow-md transition duration-200"
           >
             Create a Practice Session

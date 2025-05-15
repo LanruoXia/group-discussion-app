@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-// 包装组件，用于使用 useSearchParams
+// Wrapper component for using useSearchParams
 function DiscussionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -148,7 +148,7 @@ function DiscussionContent() {
   );
 }
 
-// 主组件用 Suspense 包裹
+// Main component wrapped with Suspense
 export default function DiscussionPage() {
   return (
     <Suspense

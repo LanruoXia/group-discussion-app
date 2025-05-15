@@ -1,0 +1,146 @@
+.
+├── .vscode
+│   ├── extensions.json
+│   └── settings.json
+├── database
+│   └── group_interaction_schema.sql
+├── public
+│   ├── images
+│   │   ├── home-hkdse-speaking.png
+│   │   └── home-hkdse-speaking2.png
+│   ├── test
+│   │   ├── prompt1.txt
+│   │   ├── prompt2.txt
+│   │   ├── rubric.txt
+│   │   ├── transcript1.txt
+│   │   └── transcript2.txt
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── next.svg
+│   ├── vercel.svg
+│   └── window.svg
+├── scripts
+│   └── test-webhooks.ts
+├── src
+│   ├── app
+│   │   ├── api
+│   │   │   ├── agora
+│   │   │   │   ├── stop-recording
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── token
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── transcription
+│   │   │   │   │   ├── builder-token
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── start
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── status
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   └── stop
+│   │   │   │   │       └── route.ts
+│   │   │   │   └── update-status
+│   │   │   │       └── route.ts
+│   │   │   ├── check-key
+│   │   │   │   └── route.ts
+│   │   │   ├── evaluate
+│   │   │   │   ├── trigger
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── session
+│   │   │   │   ├── create
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── expire
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── mark-ready
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── status
+│   │   │   │       └── route.ts
+│   │   │   ├── webhook
+│   │   │   │   ├── evaluate
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── merge-transcript
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── start-discussion
+│   │   │   │       └── route.ts
+│   │   │   └── whisper-transcript
+│   │   │       ├── stt
+│   │   │       │   └── route.ts
+│   │   │       └── submit
+│   │   │           └── route.ts
+│   │   ├── auth
+│   │   │   ├── reset-password
+│   │   │   │   └── page.tsx
+│   │   │   └── page.tsx
+│   │   ├── components
+│   │   │   ├── CountdownDisplay.tsx
+│   │   │   ├── DiscussionClient.tsx
+│   │   │   ├── DiscussionClientNew.tsx
+│   │   │   └── NavBar.tsx
+│   │   ├── dashboard
+│   │   │   ├── results
+│   │   │   │   └── page.tsx
+│   │   │   └── page.tsx
+│   │   ├── hooks
+│   │   │   ├── useCountdown.ts
+│   │   │   ├── useDiscussionAgora-backup.ts
+│   │   │   ├── useDiscussionAgora.ts
+│   │   │   └── useMediaRecorder.ts
+│   │   ├── profile
+│   │   │   └── page.tsx
+│   │   ├── session
+│   │   │   ├── create
+│   │   │   │   └── page.tsx
+│   │   │   ├── discussion
+│   │   │   │   └── page.tsx
+│   │   │   ├── discussion-room
+│   │   │   │   └── page.tsx
+│   │   │   ├── evaluation-waiting
+│   │   │   │   └── page.tsx
+│   │   │   ├── join
+│   │   │   │   └── page.tsx
+│   │   │   ├── preparation
+│   │   │   │   └── page.tsx
+│   │   │   └── waiting-room
+│   │   │       └── page.tsx
+│   │   ├── favicon.ico
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   ├── supabase-server.ts
+│   │   └── supabase.tsx
+│   ├── lib
+│   │   ├── agora
+│   │   │   └── cloudRecording.ts
+│   │   ├── evaluate
+│   │   │   └── evaluateTranscript.ts
+│   │   ├── supabase
+│   │   │   └── client.ts
+│   │   └── transcript
+│   │       └── mergeTranscript.ts
+│   ├── protobuf
+│   │   └── SttMessage_es6.js
+│   ├── types
+│   │   ├── database.types.ts
+│   │   └── global.d.ts
+│   ├── .DS_Store
+│   └── middleware.ts
+├── .DS_Store
+├── .env.local
+├── .gitignore
+├── LICENSE
+├── README.md
+├── SttMessage.proto
+├── SttMessage_es6.js
+├── directory_structure.txt
+├── eslint.config.mjs
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── route.ts
+├── test.ipynb
+├── test.mp3
+└── tsconfig.json
+
+56 directories, 88 files
