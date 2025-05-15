@@ -96,34 +96,6 @@ export default function Home() {
     });
   };
 
-  // Handles user logout process
-  // Signs out from Supabase, clears local state and storage, redirects to auth page
-  const handleLogout = async () => {
-    try {
-      setAuthState((prev) => ({ ...prev, isLoading: true }));
-
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-
-      // Reset auth state and clear storage
-      setAuthState({
-        user: null,
-        isLoading: false,
-        isAuthenticated: false,
-      });
-      clearSupabaseData();
-
-      // Force page reload to clear any cached state
-      const timestamp = new Date().getTime();
-      window.location.replace(`/auth?t=${timestamp}`);
-    } catch (error) {
-      console.error("Error during logout:", error);
-      setAuthState((prev) => ({ ...prev, isLoading: false }));
-      clearSupabaseData();
-    }
-  };
-
   // Handles navigation with authentication and waiting room checks
   // Prevents unauthorized access and manages navigation restrictions
   const handleNavigation = async (path: string) => {
