@@ -14,8 +14,8 @@ A full-stack web application for practicing English speaking skills, specificall
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes
+- **Frontend**: Next.js 15.2.2, React, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes + Supabase webhooks
 - **Database**: Supabase (PostgreSQL)
 - **Real-time Communication**: Agora.io
 - **Authentication**: Supabase Auth
